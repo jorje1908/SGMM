@@ -10,12 +10,12 @@ import pandas as pd
 
 
 #SAME AS LOADERS  BUT  READS THE DATA FROM ANOTHER FILE
-def loader(big, small):
+def loader(big, small, file1, file2):
     
-    filename1 =  '/home/george/Desktop/research/sparx/sparcs00.h5'
-    filename2 =  '/home/george/Desktop/research/sparx/sparcs01.h5'
+    filename1 = file1 
+    filename2 =  file2
     
-    store = pd.HDFStore('/home/george/Desktop/research/sparx/sparcs00.h5') 
+    store = pd.HDFStore(file1) 
     nrows = store.get_storer('part1').nrows
     #print(nrows)
 

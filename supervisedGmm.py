@@ -7,9 +7,9 @@ Created on Mon Mar 18 19:14:37 2019
 """
 
 import numpy as np
-import pandas as pd
-from wordcloud import WordCloud, STOPWORDS, ImageColorGenerator
-import matplotlib.pyplot as plt
+#import pandas as pd
+#from wordcloud import WordCloud, STOPWORDS, ImageColorGenerator
+#import matplotlib.pyplot as plt
 
 
 def warn(*args, **kwargs):
@@ -17,16 +17,16 @@ def warn(*args, **kwargs):
 import warnings
 warnings.warn = warn
 
-from sklearn.model_selection import train_test_split
-from sklearn.cluster import KMeans
-from sklearn.linear_model import SGDClassifier
+#from sklearn.model_selection import train_test_split
+#from sklearn.cluster import KMeans
+#from sklearn.linear_model import SGDClassifier
 from sklearn.linear_model import LogisticRegressionCV
-from sklearn.metrics import precision_score, accuracy_score, recall_score, \
- balanced_accuracy_score, f1_score
-from sklearn.mixture import GaussianMixture
-from sklearn.model_selection import GridSearchCV
-from sklearn.metrics import roc_auc_score
-from sklearn.ensemble import RandomForestClassifier
+#from sklearn.metrics import precision_score, accuracy_score, recall_score, \
+#balanced_accuracy_score, f1_score
+#from sklearn.mixture import GaussianMixture
+#from sklearn.model_selection import GridSearchCV
+#from sklearn.metrics import roc_auc_score
+#from sklearn.ensemble import RandomForestClassifier
 #from sklearn.neural_network import MLPClas
 from  scipy.stats import multivariate_normal
 
@@ -35,8 +35,9 @@ from  scipy.stats import multivariate_normal
 
 class SupervisedGMM():
     
-    """ THIS CLASS IMPLEMENTS THE SUPERVISED GMM ALGORITHM 
-        IT USES SOME PART OF SCIKIT LEARN TO ACCOMPLISH THIS    
+    """ 
+        THIS CLASS IMPLEMENTS THE SUPERVISED GMM ALGORITHM 
+        IT USES SOME PARTS OF SCIKIT LEARN TO ACCOMPLISH THIS    
     """
     
     
@@ -77,11 +78,19 @@ class SupervisedGMM():
         #self.Xtest = []
         #self.ytrain = []
         #self.ytest = []
-        self.Gmms = []   #this exists only when we fit the model a list
+        
+        #THE FOLLOWING ATTRIBUTES ARE SETTED AFTER FITTING THE ALGORITHM
+        #TO DATA
+        self.Gmms = None  #this exists only when we fit the model a list
                          #with fitted Gaussians one for each class
-        self.mixes = []  #Gmms mixes
-        self.LogRegr = [] #Logistic Regression Models
-        self.params = [] #parameteres returned by the gmmModels
+        self.mixes = None  #Gmms mixes
+        self.LogRegr = None #Logistic Regression Models
+        self.params = None #parameteres returned by the gmmModels
+        self.fitParams = None #parameters of the final model
+                            #membership matrices for test and train data
+                            #hard clustering labels of test and train data
+        self.mTrain = None
+        self.mTest = None
         
     def fit(self, Xtrain = None, ytrain = None, Xtest = None):
         
@@ -107,7 +116,7 @@ class SupervisedGMM():
         
         
         #INITIALIZE MEMBERSHIP FUNCTIONS
-        # WE KEEP SEPARATED TRAIN AND TEST MEMBERSHIPS
+        #WE KEEP SEPARATED TRAIN AND TEST MEMBERSHIPS
         #BECAUSE TRAIN IS SUPERVISED MEMBERSHIP
         #TEST IS UNSUPERVISED
         mTrain = np.random.rand( dimXtrain, n_clusters)
@@ -208,9 +217,9 @@ class SupervisedGMM():
            # print( np.sum(mTrain, axis = 1))
                 
             #SETTING ALL MODELS AS ATTRIBUTES OF THE CLASS
-            #SO WE CAN USE OUTSIDE OF THE CLASS TOO IF WE WANT FOR PREDICTIOn
-            #BUT THIS MODEL ASSUMES THAT WE HAVE THE TEST DATA AND WE JUST
-            # DO NOT KNOW THE LABELS BECAUSE IT USES BOTH TRAIN AND TEST 
+            #SO WE CAN USE OUTSIDE OF THE CLASS TOO IF WE WANT FOR PREDICTION
+            #THIS MODEL ASSUMES THAT WE HAVE THE TEST DATA AND WE JUST
+            #DO NOT KNOW THE LABELS BECAUSE IT USES BOTH TRAIN AND TEST 
             #IN CLUSTERING
             self.Gmms = params['Gmms']
             self.mixes = params['pis']
@@ -227,8 +236,11 @@ class SupervisedGMM():
         
         fitParams = {'mTrain' : mTrain, 'mTest': mTest, 'labTest': testlabels,
                      'labTrain' : trainlabels }
+        self.mTrain = mTrain
+        self.mTest = mTest
+        self.fitParams = fitParams
         
-        return fitParams
+        return self
             
             
                 
@@ -279,7 +291,6 @@ class SupervisedGMM():
                 cov.append( covCl )
                 means.append( mCl )
                 pis.append( piCl )
-                #probMat[:, cl] = proba
                 Gmms.append( model )
                 
            
@@ -324,8 +335,42 @@ class SupervisedGMM():
        # print("min log prob {}, max of log prob {}".format( np.min(proba ), np.max(proba )))
         #proba = model.cdf(X)*pk
         return covk, meank, pk, logproba, model
+    
+    
+    def predict_proba(self, Xtest = None, Xtrain = None):  
         
+        """
+           AFTER FITTING THE MODEL IT PREDICTS THE PROBABILITY ON  THE TEST
+           SET THE MODEL WAS FITTED 
+           
+        """
+        #CHECKING IF THE MODEL IS FITTED 
+        if self.mTest == None:
+            print("The Model is not fitted or some other error might have\
+                              occured")
+            return
         
+       
+        logisticModels = self.LogRegr
+        
+        #PROBABILITY MATRIX THE METHOD WILL RETURN
+        #SPECIFICALLY EACH ENTRANCE WILL HAVE THE PROBABILITY 
+        #EACH DATAPOINT TO BE 1
+        pMatrixTest = np.zeros( (Xtest.shape[0]) )
+        pMatrixTrain = np.zeros( (Xtrain.shape[0]) )
+        
+        #FOR EACH MODEL CALCULATE THE PREDICTION FOR EACH DATA POINT
+        for i, model in enumerate( logisticModels ):
+            probsTest = model.predict_proba(Xtest)[:,1] #probability each point
+                                                    #to be in class 1
+                                                    
+            probsTrain = model.predict_proba(Xtrain)[:,1] #probability each point
+                                                    #to be in class 1
+            pMatrixTest += probsTest*self.mTest[:, i]
+            pMatrixTrain += probsTrain*self.mTrain[:, i]
+            
+            
+        return pMatrixTest, pMatrixTrain
             
                 
         

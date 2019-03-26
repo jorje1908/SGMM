@@ -90,11 +90,12 @@ class superGmmMother():
           #PRODUCE RESULTS
           
           #FITTING THE SUPERVISED MODEL 
-          if fitted == 0:
-              self.fitParams = self.model.fit(Xtrain = self.Xtrain,
+          if fitted == 1:
+              self.model = self.model.fit(Xtrain = self.Xtrain,
                                               Xtest = self.Xtest, 
                                               ytrain = self.ytrain )
           
+          self.fitParams = self.model.fitParams  
           model  = self.model
           #TAKING THE MODELS AND MODEL PARAMETERS
           #NOT NEEDED FOR THIS SNIPPET OF CODE (Gmms, mixes)

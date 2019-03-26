@@ -8,8 +8,7 @@ Created on Tue Mar 19 23:55:20 2019
 
 import numpy as np
 import pandas as pd
-from wordcloud import WordCloud, STOPWORDS, ImageColorGenerator
-import matplotlib.pyplot as plt
+
 
 
 def warn(*args, **kwargs):
@@ -17,18 +16,6 @@ def warn(*args, **kwargs):
 import warnings
 warnings.warn = warn
 
-from sklearn.model_selection import train_test_split
-from sklearn.cluster import KMeans
-from sklearn.linear_model import SGDClassifier
-from sklearn.linear_model import LogisticRegressionCV
-from sklearn.metrics import precision_score, accuracy_score, recall_score, \
- balanced_accuracy_score, f1_score
-from sklearn.mixture import GaussianMixture
-from sklearn.model_selection import GridSearchCV
-from sklearn.metrics import roc_auc_score
-from sklearn.ensemble import RandomForestClassifier
-#from sklearn.neural_network import MLPClas
-from  scipy.stats import multivariate_normal
 
 from supervisedGmm import SupervisedGMM
 from metricsFunctions import calc_metrics, CalculateSoftLogReg, optimalTau
@@ -37,7 +24,9 @@ from loaders2 import loader
 
 
 np.random.seed( seed = 0)
-data, dataS, idx = loader(4000, 300)
+file1 = '/home/george/github/sparx/data/sparcs00.h5'
+file2 = '/home/george/github/sparx/data/sparcs01.h5'
+data, dataS, idx = loader(4000, 300, file1, file2)
 
 
 mother = superGmmMother( data , n_clusters = 3)
