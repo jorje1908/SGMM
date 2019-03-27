@@ -86,9 +86,9 @@ class SupervisedGMM():
         self.mixes = None  #Gmms mixes
         self.LogRegr = None #Logistic Regression Models
         self.params = None #parameteres returned by the gmmModels
-        self.fitParams = None #parameters of the final model
-                            #membership matrices for test and train data
-                            #hard clustering labels of test and train data
+        self.fitParams = None #parameters of the final model (dictionary)
+                              #membership matrices for test and train data
+                              #hard clustering labels of test and train data
         self.mTrain = None
         self.mTest = None
         

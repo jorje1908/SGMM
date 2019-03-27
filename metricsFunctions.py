@@ -53,8 +53,10 @@ def CalculateSoftLogReg( models = [],  Xtrain = [], Xtest = [], ytrain = [],
                 #PROBABILITY OF EACH POINT TO BELONG IN CLASS 1
                 #TO USE FOR THRESHOLDING
                 # FOR TRAIN AND TEST DATA
-                probTest = probTest + model.predict_proba( Xtest )[ :, 1] * membTest[ :, i ]
-                probTrain = probTrain + model.predict_proba( Xtrain )[ :, 1] * membTrain[ :, i ]
+                probTest = probTest + model.predict_proba( Xtest )[ :, 1] \
+                                                        * membTest[ :, i ]
+                probTrain = probTrain + model.predict_proba( Xtrain )[ :, 1] \
+                                                        * membTrain[ :, i ]
                 
             
             #ALL THE METRICS WE WILL CALCULATE
@@ -81,7 +83,7 @@ def CalculateSoftLogReg( models = [],  Xtrain = [], Xtest = [], ytrain = [],
             metricsTrain = pd.DataFrame( [metricsTrain], columns = columns)
             metricsTest = pd.DataFrame( [metricsTest], columns = columns)
             
-            return metricsTrain, metricsTest, roc1, roc2
+            return metricsTrain, metricsTest, roc1, roc2, tau
         
         
 def optimalTau(probabilities, ylabels):
@@ -159,24 +161,27 @@ def optimalTau(probabilities, ylabels):
             
             return threshold #, f1, np.array(prob_F1), prec, rec
         
-def calc_metrics(model = [], cluster = -1, y = [], tau = None, 
+def calc_metrics(model = [], cluster = -1, y = [], tau = 0.5, 
                  custom_prob = [], putModels = 0 , X = []):
-             """ 
-             
+            
+             """              
                  COMPUTES METRICS OF THE ALGORITHM
                  Acuraccy, Balanced acuraccy, Auc, Precision,
                  RSpecificity, Sensitivity,  TP, TN, FP, FN,
                  Percentage of High Cost Patients
                  Percentage of Low Cost Patients
                  
-                 Input: 
-                     y: training or testing labels 
-                     tau: Threshold for probabilities
-                     custom_prob: Probabilities produced by the model
-                                  based  on which you want to calculate
-                                  the class, these correspond
-                                  for a datapoint to belong to class 1
-             
+                  
+                 y: training or testing labels 
+                 tau: Threshold for probabilities
+                 custom_prob: Probabilities produced by the model
+                              based  on which you want to calculate
+                              the class, these correspond
+                              for a datapoint to belong to class 1
+                 putModels:  Checks if you put  model to do the predictions
+                             or the probabilities for each data point 
+                             to belong to  class 1.
+                     
              """
              if  putModels != 0 :
                  probabilities = model.predict_proba( X )[:,1]
