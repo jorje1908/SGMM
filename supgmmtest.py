@@ -66,7 +66,8 @@ metTrainL1 = pd.DataFrame( [metTrain], columns = columns)
 pNN, probTestNN, probTrainNN = neural_nets( Xtrain = Xtrain,
                                                   ytrain = ytrain,
                                                   Xtest = Xtest,
-                                                  ytest = ytest )
+                                                  ytest = ytest,
+                                                  h_l_s = (4 ,4, 2))
 tau = optimalTau(probTrainNN, ytrain)
 
 metTest,_ = calc_metrics(custom_prob = probTestNN.copy(), tau = tau, y = ytest)

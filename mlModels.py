@@ -44,7 +44,7 @@ def neural_nets(Xtrain = None, ytrain = None, Xtest = None,
     
      sgd  =  MLPClassifier( hidden_layer_sizes = h_l_s, early_stopping = True,
                                                               random_state = 0)
-     param_grid = {'alpha' : [0.1,  0.01, 0.001, 1]}
+     param_grid = {'alpha' : [0.1,  0.01, 0.001, 1, 2, 5, 10, 12, 100]}
             
      model = GridSearchCV( sgd, param_grid = param_grid, 
                                    n_jobs = -1, 
