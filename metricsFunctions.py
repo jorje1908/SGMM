@@ -194,6 +194,10 @@ def calc_metrics(model = [], cluster = -1, y = [], tau = 0.5,
              auc = roc_auc_score( y , probabilities)  
              roc = roc_curve(y, probabilities)
              
+             #Calculate tau if calc_tau is 1
+             #Given we have provided probability matrix
+            
+             
              #THRESHOLDING BASED ON TAU IN ORDER TO GET THE 
              #ESTIMATED LABELS FOR EACH DATAPOINT
              probabilities[ np.where( probabilities >= tau ) ] = 1

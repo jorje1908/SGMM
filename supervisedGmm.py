@@ -17,7 +17,7 @@ def warn(*args, **kwargs):
 import warnings
 warnings.warn = warn
 
-#from sklearn.model_selection import train_test_split
+from sklearn.model_selection import train_test_split
 #from sklearn.cluster import KMeans
 #from sklearn.linear_model import SGDClassifier
 from sklearn.linear_model import LogisticRegressionCV
@@ -43,7 +43,8 @@ class SupervisedGMM():
     
     def __init__(self, max_iter = 100, cv = 2, mix = 0.5, Cs = [1000], 
                  max_iter2 = 10, penalty = 'l1', scoring = 'f1',
-                 solver = 'saga', n_clusters = 2, tol = 10**(-3 ) ):
+                 solver = 'saga', n_clusters = 2, tol = 10**(-3 ),
+                 ):
         
         
         
@@ -57,13 +58,25 @@ class SupervisedGMM():
             for logistic Regression 
             scoring:[STRING] score to optimize in cross validation: DEF: 'f1'
             
+                 
+            
             GMMS PARAMETERES:
             mix: In what Percentages to Soft Cluster Memberships: DEF: 0.5   
             max_iter2: Maximum # of EM Iterations, DEF: 10 
             n_clusters: #of Soft Clusters: DEF: 2
+           
+            
+                
+            
         """
-        
-        
+        #ind1 and ind2 are optional feature selection parameters that might
+        #be specified in the fit method
+        self._ind1 = None
+        self._ind2 = None
+        #idx1, idx2 are indexes created if we do a split and explained in
+        #the split method
+        self._idx1 = None 
+        self._idx2 = None
         self._max_iter = max_iter
         self._cv = cv
         self._mix = mix
@@ -74,10 +87,7 @@ class SupervisedGMM():
         self._solver = solver
         self._n_clusters = n_clusters
         self._tol = tol
-        #self.Xtrain = []
-        #self.Xtest = []
-        #self.ytrain = []
-        #self.ytest = []
+        
         
         #THE FOLLOWING ATTRIBUTES ARE SETTED AFTER FITTING THE ALGORITHM
         #TO DATA
@@ -92,12 +102,62 @@ class SupervisedGMM():
         self.mTrain = None
         self.mTest = None
         
-    def fit(self, Xtrain = None, ytrain = None, Xtest = None):
+    def split(self, data = None, X = None, y = None, split = 0.2):
+        """
+        A helper function to split data into training and test set
+        There are 2 choices, either Input a data numpy Array with the last 
+        column be its labels or  The data and the labels separately
+        data: Data with last column labels
+        X: Data
+        y: labels
+        split: the percentage of test data
         
+        returns: Xtrain, Xtest, ytrain, ytest, idx1, idx2
+        idx1:  indexes taken for training data
+        idx2:  indexes taken for test data
+        
+        
+        """
+        
+       # if (data and X and y ) is None:
+          #  return "Input data or X and y "
+        
+        if (X and y) is None:
+            Xtrain, Xtest, ytrain, ytest , idx1, idx2  = \
+                                train_test_split(data[:,:-1], data[:,-1], 
+                                 np.arange( data.shape[0] ), 
+                                 test_size = split, random_state = 1512)
+        else:
+            Xtrain, Xtest, ytrain, ytest, idx1, idx2 = \
+                                train_test_split(X, y, 
+                                 np.arange( X.shape[0] ), 
+                                 test_size = split, random_state = 1512)
+        self.idx1 = idx1
+        self.idx2 = idx2
+        
+        return Xtrain, Xtest, ytrain.astype(int), ytest.astype(int)
+        
+    def fit(self, Xtrain = None, ytrain = None, Xtest = None, ind1 = None,
+                                                              ind2 = None):
+        """ 
+            Fit the Supervised Mixtures of Gaussian Model
+            ind1: chose the features to use in the training of the Ml model
+            ind2: chose the fetures to use in the training of the Gaussian
+        """
         #CHECK IF ALL DATA ARE GIVEN
+        self.ind1 = ind1
+        self.ind2 = ind2
+        
         if Xtrain is None or ytrain is None or Xtest is None :
             print(" Please Give Xtrain, ytrain, Xtest and ytest data ")
             return
+        if ind1 is None:
+            self.ind1 = np.arange( Xtrain.shape[1] )
+            ind1 = self.ind1
+            
+        if ind2 is None:
+            self.ind2 = np.arange( Xtrain.shape[1] )
+            ind2 = self.ind2
         
         #PARAMETERES TO BE USED BY THE FIT FUNCTION
         n_clusters = self._n_clusters
@@ -131,7 +191,7 @@ class SupervisedGMM():
         
         #print(np.sum(mTrain, axis = 1), np.sum(mTest, axis = 1))
         
-        #SET SOME NEEDED PARAMETERES
+        #SET SOME  PARAMETERES
         #FOR USE IN THE FOR LOOP
         indexing = np.arange( dimXtrain )
         logiProb = np.zeros([dimXtrain, n_clusters])
@@ -150,8 +210,9 @@ class SupervisedGMM():
                 #FIT THE L! LOGISTIC REGRESSION MODEL
                 #CROSS VALIDATION MAXIMIZING BE DEFAULT THE F1 SCORE
                 model = LogisticRegressionCV(Cs = Cs, penalty = penalty,
-                             scoring = scoring, solver = solver, max_iter =
-                             max_iter,cv = cv).fit( Xtrain, ytrain,
+                             scoring = scoring, random_state = 0, n_jobs = -1,
+                             solver = solver, max_iter =
+                             max_iter,cv = cv).fit( Xtrain[:, ind1], ytrain,
                              mTrain[:, clust] )
                 
                 #FOR EACH CLUSTER APPEND THE MODEL in MODELS
@@ -159,7 +220,7 @@ class SupervisedGMM():
                
                 #PREDICT PROBABILITIES FOR BEING IN CLASS 1 or 0
                 #FOR THE TRAINING DATA
-                proba = model.predict_proba( Xtrain )
+                proba = model.predict_proba( Xtrain[:, ind1] )
                 
                 #FOR EACH DATA POINT WE TAKE THE PROBABILITY 
                 # OF BEING IN THE CORRECT CLASS
@@ -173,7 +234,7 @@ class SupervisedGMM():
             #print(logiProb[0,:])
             #WE TAKE THE MEMBERSHIPS AND ALL THE DATA
             #TO FIT THE GAUSSIANS USING THE EM ALGORITHM FOR GMM 
-            data = np.concatenate( ( Xtrain, Xtest ), axis = 0 )
+            data = np.concatenate( ( Xtrain[:, ind2], Xtest[:, ind2] ),axis = 0)
             mAll = np.concatenate( (mTrain, mTest ), axis = 0 )
             
             #params is  a dictionary with the following structure
@@ -181,7 +242,7 @@ class SupervisedGMM():
             #                 'probMat':probMat, 'Gmms': Gmms}
             #cov: list of covariances
             #means: list of means
-            #pis : list of probabilities of a specificc gaussian to be chosen
+            #pis : list of probabilities of a specific gaussian to be chosen
             #probMat: posterior probability membership matrix
             #Gmms ; a list of Object with the Gaussians for each class
             params = self.gmmModels( data, mAll )
@@ -332,20 +393,22 @@ class SupervisedGMM():
         model  = multivariate_normal(meank, covk)
         logproba = model.logpdf(X) 
         
-       # print("min log prob {}, max of log prob {}".format( np.min(proba ), np.max(proba )))
+        
+       # print("min log prob {}, max of log prob {}".format( np.min(proba ),
+       #np.max(proba )))
         #proba = model.cdf(X)*pk
         return covk, meank, pk, logproba, model
     
     
-    def predict_proba(self, Xtest = None, Xtrain = None):  
+    def predict_prob_int(self, Xtest = None, Xtrain = None):  
         
         """
-           AFTER FITTING THE MODEL IT PREDICTS THE PROBABILITY ON  THE TEST
-           SET THE MODEL WAS FITTED 
+           AFTER FITTING THE MODEL IT PREDICTS THE PROBABILITY ON  THE TEST, 
+           TRAINING SET, THE MODEL WAS FITTED 
            
         """
         #CHECKING IF THE MODEL IS FITTED 
-        if self.mTest == None:
+        if self.mTest is None:
             print("The Model is not fitted or some other error might have\
                               occured")
             return
@@ -371,6 +434,40 @@ class SupervisedGMM():
             
             
         return pMatrixTest, pMatrixTrain
+    
+    def predict_proba(self, X = None):
+        "Predicts the Probabity of Training data X to be in class 1"""
+        
+        models = self.LogRegr
+        memb = self.predict_GMMS( X )     
+        totalProb = np.zeros( [X.shape[0], memb.shape[1] ])
+
+        for i in np.arange( memb.shape[1] ):
+            #probability  points of X belong in class 1
+            totalProb += models[i].predict_proba( X )[:, 1]*memb[:, i]
+        
+        return totalProb
+        
+    
+    def predict_GMMS( self, X):
+        """
+        Given a Data matrix X it returns the Membership matrix of 
+        for each data point in X based on the Gaussians already fitted
+        
+        """
+        
+        gmms = self.Gmms
+        mixes = self.mixes
+        
+        membership = np.zeros( [X.shape[0], len( gmms )] )
+        for i in np.arange( len( gmms ) ):
+            
+            membership[:, i] =  gmms[i].pdf( X[:, self.ind2] )*mixes[i]
+            
+        
+        membership = (membership.T/ np.sum(membership , axis = 1)).T
+        
+        return membership
             
                 
         
