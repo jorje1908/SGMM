@@ -36,7 +36,11 @@ def CalculateSoftLogReg( models = [],  Xtrain = [], Xtest = [], ytrain = [],
                         ytest = [],  membTrain = [], membTest = []):
                          
             """
-                Calculates The soft clustering metrics
+                This Function probably is not gonna be used in the
+                future. I might modify it or leave it at some point
+                The initial purpose was to calculate metrics for the
+                Supervised Gaussian Mixtures Models. But I have incorporate
+                the functionality inside the class
                 
             """
             #NUMBER OF CLUSTERS  
@@ -86,11 +90,16 @@ def CalculateSoftLogReg( models = [],  Xtrain = [], Xtest = [], ytrain = [],
             return metricsTrain, metricsTest, roc1, roc2, tau
         
         
-def optimalTau(probabilities, ylabels):
+def optimalTau(probabilities, ylabels, returnAll = 0):
             
             """ Finds the Optimal tau based on the F1 score
                 Input: Probabilities of train data of being class 1,
-                ylabels of training data"""
+                ylabels of training data
+                
+                returnAll: 0 or 1 :Default 0, If 1 return a more complete
+                set of parameters except tau
+                
+                """
             
             #STEP 1 SORT PROBABILITIES AND LABELS
             sortedIndexes = np.argsort( probabilities )
@@ -158,11 +167,15 @@ def optimalTau(probabilities, ylabels):
                     rec = recall      #you can return  recall
                                       # these are mostly for correctness
                                       #checking
+            if returnAll == 1:
+                params = {'tau': threshold, 'curve': np.array(prob_F1), 
+                          'precision': prec, 'recall': rec}
+                return params
             
             return threshold #, f1, np.array(prob_F1), prec, rec
         
-def calc_metrics(model = [], cluster = -1, y = [], tau = 0.5, 
-                 custom_prob = [], putModels = 0 , X = []):
+def calc_metrics(model = None, cluster = -1, y = None, tau = 0.5, 
+                 custom_prob = None, putModels = 0 , X = None):
             
              """              
                  COMPUTES METRICS OF THE ALGORITHM
@@ -237,117 +250,84 @@ def calc_metrics(model = [], cluster = -1, y = [], tau = 0.5,
              return metrics, roc
          
             
-def logistic_cluster(Xtrain = [], Xtest = [], ytrain = [], ytest = [],
-                                          n_clusters = 5,  
-                                          n_jobs = -1, testlabels = [],
-                                          labels = [], Cs = [10], 
-                                          cv = 2, tau = 0.5, scoring = 'f1',
-                                          penalty = 'l1',
-                                          solver = 'saga',max_iter = 100):
-            
-            """ Performs logistic Regression in each cluster 
-            
-            Xtrain: TRAINING DATA: DEFAULT: xTrain
-            n_clusters: #CLUSTERS THE DATA HAVE BEEN CLUSTERED TO
-            n_jobs: #JOBS
-            labels: LABELS DEPICTING EACH DATAPOINT"S CLUSTER 0-N_CLUSTERS
-            Cs: INVERSEn REGULARIZATION PARAMETER , DEFAULT: 10
+def metrics_cluster(models = None, ytrain = None, ytest = None,
+                                          testlabels = [],
+                                          trainlabels = [],
+                                          Xtrain = None,  Xtest = None):
+            """
+             Calculates Metrics such as accuracy, balanced accuracy,
+             specificity, sensitivity, precision, True Positives,
+             True Negatives etc.
+             
+             These metrics are calculated for each cluster:
+             models: predictive models trained in each cluster
+             ytrain: Target labels of training set 
+             ytest: target labels of test set
+             testlabels: a matrix with numbers from 0 to c-1 number of clusters
+                         indicating in which cluster each data point belongs
+                         in the test set
+             trainlabels: the same as testlabels but for training data
+             Xtrain: trainiing data
+             Xtest: testing data
+                     
             
             
             """
            
-            # matrix for logistic regression weights for each cluster
-            weights = []   
+           
             # matrix with metrics for each cluster
-            metrics = []   
+            metricsTrain = []   
             #metrics for test  data in each cluster
             metricsTest = []  
             
-            #If we give or not test data
-            gate = len(testlabels)
+            
             
             
             columns = ['cluster', 'size', 'high_cost%','low_cost%', 
                        'TP', 'TN', 'FP', 'FN', 
                        'FPR', 'specificity', 'sensitivity', 'precision',
                        'accuracy', 'balanced accuracy', 'f1', 'auc']
-            models = []
             
-            #PERFORM LOGISTIC REGRESSION TO EACH CLUSTER
-            for  cluster in np.arange( n_clusters ):  
+            
+            #Calculate the Metrics for Each Cluster
+            for  cluster in np.arange( len( models ) ):  
                 #INDEXES OF CLUSTER "cluster"
-                inC = np.where( labels == cluster )[0] 
-                #POSITIVE INDEXES OF CLUSTER "cluster"
-                indpos = np.where( ytrain[inC] == 1 )[0]  
-                #NEGATIVE INDEXES OF CLUSTER "cluster"
+                inC = np.where( trainlabels == cluster )[0] 
+                inCT = np.where( testlabels == cluster )[0]
                 
-                indneg = np.where( ytrain[inC] == 0 )[0]  
+                #predict probabilities  of data in cluster "cluster"
+                #to be 1
+                probTrain = models[cluster].predict_proba(Xtrain[inC])[:, 1]
+                probTest = models[cluster].predict_proba(Xtest[inCT])[:, 1]
                 
-                if gate > 0 : #handling test data
-                    inCtest = np.where( testlabels == cluster )[0]
-                  
+                #calculate optimal tau based on F1
+                tau = optimalTau(probTrain, ytrain[inC])
                     
-               #IF WE HAVE LESS THAN TWO POSITIVE OF NEGATIVE DATAPOINTS 
-               #APPEND ZEROS
-                if  indpos.size < 2 or indneg.size < 2 :  
+                #CALCULATE METRICS : ACCURACY, RECALL, PRECISION ,
+                #BALANCED ACCURACY ETC
+                metTrain , _= calc_metrics(  custom_prob = probTrain, 
+                                                  y = ytrain[inC], 
+                                                  cluster = cluster, 
+                                                  tau = tau )
+                
+                metTest, _ = calc_metrics(  custom_prob = probTest,
+                                                  y = ytest[inCT], 
+                                                  cluster = cluster, 
+                                                  tau = tau)
+                
+                metricsTrain.append( metTrain )
+                metricsTest.append( metTest )
                     
-                    weights.append( [0, 0] )
-                    metrics.append( [cluster, 1, 1, 1, 1, 1] )
-                    metricsTest.append( [cluster,1, 1, 1, 1, 1] )
-                    
-                #ELSE PERFORM LOGISTIC REGRESSION TO EACH CLUSTER SEPARATELY  
-                else:  
-                    
-                    #PERFORM L1 LOGISTIC REGRESSION
-                    sgd = LogisticRegressionCV(Cs = Cs, penalty = penalty,
-                             scoring = scoring, solver = solver,
-                             max_iter = max_iter,
-                             cv = cv).fit( Xtrain[inC], ytrain[inC])
-                             
-                    #CALCULATE METRICS : ACCURACY, RECALL, PRECISION , BALANCED ACCURACY
-                   
-                    metCluster , _= calc_metrics( model = sgd, X = Xtrain[inC],
-                                 y = ytrain[inC], cluster = cluster, tau = tau,
-                                 putModels = 1)
-                    #APPEND THE CLUSTERS WEIGHTS EXTRACTED FROM THE CLASSIFIER
                    
                    
-                    #APPEND METRICS
-                    
-                    if len( inC ):
-                        
-                        metrics.append( metCluster )
-                        
-                    else:
-                        
-                        metrics.append( [cluster,-1, -1, -1, -1] )
-                        
-                    #SAVE SGD MODELS FOR TEST DATA
-                    models.append( sgd )
-                    #evaluate test data
-                    #if we have provided  test labels and data
-                    if gate > 0 :  
-                        if len( inCtest ):
-                         
-                            metTest, _ = calc_metrics( model = sgd, 
-                                                      X = Xtest[inCtest],
-                                 y = ytest[inCtest], cluster = cluster, 
-                                 tau = tau,
-                                 putModels = 1)
-                            
-                            metricsTest.append( metTest )
-                            
-                        else:
-                            metricsTest.append([cluster, -1, -1, -1, -1])
-                            #print("I am here Test")
-                        
-                    
-                    
-                        
-            metrics = pd.DataFrame ( metrics, columns = columns ) #MAKE METRICS INTO A DATAFRAME
+                   
             
-            if gate: #check if test data are calculated
-                #print('HERE')
-                metricsTest = pd.DataFrame( metricsTest, columns = columns ) #MAKE METRICS INTO A DATAFRAME
+                    
+                        
+                    
+                    
+            #Create a dataframe with metrics for better Visualization         
+            metricsTrain = pd.DataFrame ( metricsTrain, columns = columns )
+            metricsTest = pd.DataFrame( metricsTest, columns = columns ) 
                 
-            return metrics,   metricsTest, weights, models
+            return metricsTrain, metricsTest

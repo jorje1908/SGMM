@@ -19,7 +19,7 @@ warnings.warn = warn
 
 from supervisedGmm import SupervisedGMM
 from metricsFunctions import calc_metrics, CalculateSoftLogReg, optimalTau
-from superGmmMother import superGmmMother
+#from superGmmMother import superGmmMother
 from loaders2 import loader
 from mlModels import logisticRegressionCv2, neural_nets
 
@@ -42,6 +42,8 @@ model = SupervisedGMM( Cs = Cs, n_clusters = 2)
 Xtrain, Xtest, ytrain, ytest = model.split( data = data.values)
 model = model.fit( Xtrain = Xtrain, Xtest = Xtest, ytrain = ytrain)
 mTest, mTrain = model.mTest, model.mTrain
+
+
 probTest, probTrain = model.predict_prob_int( Xtest = Xtest, Xtrain = Xtrain )
 tau = optimalTau(probTrain, ytrain)
 metTest,_ = calc_metrics(custom_prob = probTest.copy(), tau = tau, y = ytest)
@@ -53,7 +55,9 @@ metTrainSGMM = pd.DataFrame( [metTrain], columns = columns)
 pL1, probTestL1, probTrainL1 = logisticRegressionCv2( Xtrain = Xtrain,
                                                   ytrain = ytrain,
                                                   Xtest = Xtest,
-                                                  ytest = ytest, Cs = Cs )
+                                               ytest = ytest, Cs = Cs )
+
+#METRICS L1 LOGISTIC REGRESSION  
 tau = optimalTau(probTrainL1, ytrain)
 
 metTest,_ = calc_metrics(custom_prob = probTestL1.copy(), tau = tau, y = ytest)
@@ -68,12 +72,17 @@ pNN, probTestNN, probTrainNN = neural_nets( Xtrain = Xtrain,
                                                   Xtest = Xtest,
                                                   ytest = ytest,
                                                   h_l_s = (4 ,4, 2))
+
+#Metrics Neurals Nets
 tau = optimalTau(probTrainNN, ytrain)
 
 metTest,_ = calc_metrics(custom_prob = probTestNN.copy(), tau = tau, y = ytest)
 metTrain ,_= calc_metrics(custom_prob = probTrainNN.copy(), tau = tau, y = ytrain)
 metTestNN = pd.DataFrame( [metTest], columns = columns)
 metTrainNN = pd.DataFrame( [metTrain], columns = columns)
+
+
+#Kmeans
 
 
 
