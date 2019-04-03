@@ -39,8 +39,8 @@ def CreateClouds( data = None, labels = None, names = None,
     
      for  i in np.arange( n_clusters ):
          
-         filename = filename + str(i)
-         clouds(counts = dictions[i], filename = filename, dirName = dirName)
+         filenamenew = filename + str(i)
+         clouds(counts = dictions[i], filename = filenamenew, dirName = dirName)
          
      return dictions
         
@@ -64,6 +64,7 @@ def CreateCloudsWeights( weights = None, names = None, n_clusters = None,
         clouds( counts = dictN[i], filename = filenameNeg, dirName = dirName)
     
     params = {'dictp':dictP, 'dictN': dictN}   
+    
     
     return params
         
