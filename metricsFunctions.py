@@ -251,8 +251,8 @@ def calc_metrics(model = None, cluster = -1, y = None, tau = 0.5,
          
             
 def metrics_cluster(models = None, ytrain = None, ytest = None,
-                                          testlabels = [],
-                                          trainlabels = [],
+                                          testlabels = None,
+                                          trainlabels = None,
                                           Xtrain = None,  Xtest = None):
             """
              Calculates Metrics such as accuracy, balanced accuracy,
