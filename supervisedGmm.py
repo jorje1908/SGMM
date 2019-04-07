@@ -61,7 +61,7 @@ class SupervisedGMM():
                  
             
             GMMS PARAMETERES:
-            mix: In what Percentages to Soft Cluster Memberships: DEF: 0.5   
+            mix: In what Percentages to Upadate Memberships: DEF: 0.5   
             max_iter2: Maximum # of EM Iterations, DEF: 10 
             n_clusters: #of Soft Clusters: DEF: 2
            
@@ -91,17 +91,20 @@ class SupervisedGMM():
         
         #THE FOLLOWING ATTRIBUTES ARE SETTED AFTER FITTING THE ALGORITHM
         #TO DATA
-        self.Gmms = None  #this exists only when we fit the model a list
-                         #with fitted Gaussians one for each class
+        self.Gmms = None   #this exists only when we fit the model a list
+                           #with fitted Gaussians one for each class
         self.mixes = None  #Gmms mixes
         self.LogRegr = None #Logistic Regression Models
-        self.params = None #parameteres returned by the gmmModels
+        self.params = None  #parameteres returned by the gmmModels
         self.fitParams = None #parameters of the final model (dictionary)
                               #membership matrices for test and train data
                               #hard clustering labels of test and train data
+        #separete attributes for memberships for train
+        #and test data
         self.mTrain = None
         self.mTest = None
         
+    #HELPER   
     def split(self, data = None, X = None, y = None, split = 0.2):
         """
         A helper function to split data into training and test set
@@ -149,13 +152,15 @@ class SupervisedGMM():
         self.ind2 = ind2
         
         if Xtrain is None or ytrain is None or Xtest is None :
-            print(" Please Give Xtrain, ytrain, Xtest and ytest data ")
+            print(" Please Give Xtrain, ytrain, Xtest  data ")
             return
         if ind1 is None:
+            #ALL FEATURES FOR PREDICTION IF ind1 NOT SPECIFIED
             self.ind1 = np.arange( Xtrain.shape[1] )
             ind1 = self.ind1
             
         if ind2 is None:
+            #ALL FEATURES FOR CLUSTERING IF ind2 NOOT SPECIFIED
             self.ind2 = np.arange( Xtrain.shape[1] )
             ind2 = self.ind2
         
@@ -172,6 +177,10 @@ class SupervisedGMM():
         dimXtest = Xtest.shape[0]
         Cs = self._Cs
         tol = self._tol
+        #regularize the sums  for numerical instabilities
+        reg = 10**(-5)*0
+        #regularization to be added to every memebership entry
+        regk = reg/n_clusters
         
         
         
@@ -179,12 +188,12 @@ class SupervisedGMM():
         #WE KEEP SEPARATED TRAIN AND TEST MEMBERSHIPS
         #BECAUSE TRAIN IS SUPERVISED MEMBERSHIP
         #TEST IS UNSUPERVISED
-        mTrain = np.random.rand( dimXtrain, n_clusters)
-        mTest = np.random.rand( dimXtest, n_clusters )
+        mTrain = np.random.rand( dimXtrain, n_clusters) + regk
+        mTest = np.random.rand( dimXtest, n_clusters )  + regk
 
 
         #NORMALIZE MEMBERSHIPS SO EACH ROW SUMS TO 1
-        sumTrain = np.sum( mTrain, axis = 1)
+        sumTrain = np.sum( mTrain, axis = 1) 
         sumTest = np.sum( mTest, axis = 1 )
         mTrain = ( mTrain.T / sumTrain ).T
         mTest = ( mTest.T / sumTest ).T    
@@ -199,7 +208,7 @@ class SupervisedGMM():
        
         
         #START FITTING ALGORITHM
-        
+        #CORE
         for iter2 in np.arange( max_iter2 ):
             #FITING THE L1 LOGISTIC REGRESSIONS
             models = [] #EVERY IETARTION CHANGE MODELS 
@@ -254,8 +263,8 @@ class SupervisedGMM():
              #return params
                 
             #CALCULATE NEW MEMBERSHIPS FOR TRAIN AND TEST
-            mNewTest = gmmProb[dimXtrain :, :]
-            mNewTrain = logiProb * gmmProb[0: dimXtrain, :]
+            mNewTest = gmmProb[dimXtrain :, :] + regk
+            mNewTrain = logiProb * gmmProb[0: dimXtrain, :] +regk
                 
             #NORMALIZE NEWMEMBERSHIPS
             sumTrain = np.sum( mNewTrain, axis = 1)
@@ -268,7 +277,7 @@ class SupervisedGMM():
             #EVALUATE ERROR
             errorTr = np.sum( np.abs( mTrain - mNewTrain) )
             errorTst = np.sum( np.abs( mTest - mNewTest ) )
-            error = ( errorTr + errorTst )/( dimXtrain + dimXtest )
+            error = ( errorTr + errorTst )/( (dimXtrain + dimXtest)*n_clusters )
             
             #MAKE A SOFT CHANGE IN MEMEBRSHIPS MIXING OLD WITH NEW 
             # MEMBERSHIPS WITH DEFAULT MIXING OF 0.5
@@ -282,15 +291,16 @@ class SupervisedGMM():
             #THIS MODEL ASSUMES THAT WE HAVE THE TEST DATA AND WE JUST
             #DO NOT KNOW THE LABELS BECAUSE IT USES BOTH TRAIN AND TEST 
             #IN CLUSTERING
-            self.Gmms = params['Gmms']
-            self.mixes = params['pis']
-            self.LogRegr = models
-            self.params = params
+            
                 
             print("GMM iteration: {}, error: {}".format(iter2, error))
             if error < tol:
                  break
-                
+             
+        self.Gmms = params['Gmms']
+        self.mixes = params['pis']
+        self.LogRegr = models
+        self.params = params        
         #TAKING HARD CLUSTERS IN CASE WE WANT TO USE LATER       
         testlabels = np.argmax( mTest, axis = 1 )
         trainlabels = np.argmax( mTrain, axis = 1 )
@@ -331,6 +341,7 @@ class SupervisedGMM():
             """
                 
             clusters = members.shape[1]
+            regk = (10**(-5)/clusters)*0
             cov = [] #list with covariance matrices
             means = [] #list of means
             pis = [] #list of mixing coefficients
@@ -356,10 +367,12 @@ class SupervisedGMM():
                 
            
             
-            
+            #find the maximum class log likelihood 
+            #for each data point
             maxLog = np.max(logprobaMatrix, axis = 1)
+            #regularization  of the log likelihood matrix
             logprobaMatrix = ( logprobaMatrix.T - maxLog).T
-            probMat = np.exp( logprobaMatrix )
+            probMat = np.exp( logprobaMatrix ) + regk
             sumRel = np.sum( probMat, axis = 1)
             probMat = (probMat.T / sumRel).T
             probMat = probMat*np.array(pis)
@@ -382,14 +395,14 @@ class SupervisedGMM():
         
         Nk = np.sum(memb)
         N = X.shape[0]
-        
-        pk = Nk/N  #mixing coefficient
-       # print("Minimum of memb {} max{}".format(np.min( memb), np.max( memb)))
+        #mixing coefficient
+        pk = Nk/N  
+        #print("Minimum of memb {} max{}".format(np.min( memb), np.max( memb)))
         meank = np.sum( ( X.T * memb ).T, axis = 0) / Nk
         covk =  memb*( X - meank ).T @ ( X - meank) + np.eye(X.shape[1])*10**(-4)
         covk = covk/Nk
-       # eige = np.linalg.eigvals(covk)
-       # print(np.min(eige))
+        #eige = np.linalg.eigvals(covk)
+        #print(np.min(eige))
         model  = multivariate_normal(meank, covk)
         logproba = model.logpdf(X) 
         
@@ -399,7 +412,7 @@ class SupervisedGMM():
         #proba = model.cdf(X)*pk
         return covk, meank, pk, logproba, model
     
-    
+###PREDICTIONS    
     def predict_prob_int(self, Xtest = None, Xtrain = None):  
         
         """
