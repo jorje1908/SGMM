@@ -31,7 +31,7 @@ np.random.seed( seed = 0)
 #READING DATA SETTING COLUMNS NAMES FOR METRICS
 file1 = '/home/george/github/sparx/data/sparcs00.h5'
 file2 = '/home/george/github/sparx/data/sparcs01.h5'
-data, dataS, idx = loader(40000, 300, file1, file2)
+data, dataS, idx = loader(20000, 300, file1, file2)
 
 
 cols = data.columns
@@ -49,7 +49,7 @@ columns = ['cluster', 'size', 'high_cost%','low_cost%',
 ##Fitting SGMM
 Cs = [  10 ]
 alpha = [0.1, 0.01, 0.001, 0.0001, 10**(-7), 1 ]
-model = SupervisedGMM( Cs = Cs, n_clusters = 4, max_iter2 = 10, tol = 10**(-6),
+model = SupervisedGMM( Cs = Cs, n_clusters = 4, max_iter2 = 15, tol = 10**(-6),
                                                               max_iter = 10,
                                                               alpha = alpha,
                                                               mcov = 'diag')

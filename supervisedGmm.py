@@ -104,6 +104,7 @@ class SupervisedGMM():
         #TO DATA
         self.Gmms = None   #this exists only when we fit the model a list
                            #with fitted Gaussians one for each class
+        self.Bers = None   #when Bernulli is fitted
         self.mixes = None  #Gmms mixes
         self.LogRegr = None #Logistic Regression Models
         self.params = None  #parameteres returned by the gmmModels
@@ -340,8 +341,197 @@ class SupervisedGMM():
         return self
             
             
+##fitB UNDER CONSTRUCTION WORKING WITH BINARY DATA NOT SUFFICIENTLY TESTED              
+    def fitB(self, Xtrain = None, ytrain = None, Xtest = None, ind1 = None,
+                                                              ind2 = None):
+        """ 
+            Fit the Supervised Mixtures of Bernullies
+            ind1: chose the features to use in the training of the Ml model
+            ind2: chose the fetures to use in the training of the Bernoulis
+            the same as fit but fitting bernoullis at binary features
+            instead of gaussians
+        """
+        #CHECK IF ALL DATA ARE GIVEN
+        self.ind1 = ind1
+        self.ind2 = ind2
+        
+        if Xtrain is None or ytrain is None or Xtest is None :
+            print(" Please Give Xtrain, ytrain, Xtest  data ")
+            return
+        if ind1 is None:
+            #ALL FEATURES FOR PREDICTION IF ind1 NOT SPECIFIED
+            self.ind1 = np.arange( Xtrain.shape[1] )
+            ind1 = self.ind1
+            
+        if ind2 is None:
+            #ALL FEATURES FOR CLUSTERING IF ind2 NOOT SPECIFIED
+            self.ind2 = np.arange( Xtrain.shape[1] )
+            ind2 = self.ind2
+        
+        #PARAMETERES TO BE USED BY THE FIT FUNCTION
+        n_clusters = self._n_clusters
+        max_iter = self._max_iter
+        cv = self._cv
+        mix = self._mix
+        penalty = self._penalty
+        scoring = self._scoring
+        solver = self._solver
+        max_iter2 = self._max_iter2
+        dimXtrain = Xtrain.shape[0]
+        dimXtest = Xtest.shape[0]
+        Cs = self._Cs
+        alpha = self._alpha
+        tol = self._tol
+        tol2 = self._tol2
+       # mcov = self._mcov
+        #regularize the sums  for numerical instabilities
+        reg = 10**(-5)
+        #regularization to be added to every memebership entry
+        regk = reg/n_clusters
+        
+        
+        
+        
+        #INITIALIZE MEMBERSHIP FUNCTIONS
+        #WE KEEP SEPARATED TRAIN AND TEST MEMBERSHIPS
+        #BECAUSE TRAIN IS SUPERVISED MEMBERSHIP
+        #TEST IS UNSUPERVISED
+        mTrain = np.random.rand( dimXtrain, n_clusters) + regk
+        mTest = np.random.rand( dimXtest, n_clusters )  + regk
+
+
+        #NORMALIZE MEMBERSHIPS SO EACH ROW SUMS TO 1
+        sumTrain = np.sum( mTrain, axis = 1) 
+        sumTest = np.sum( mTest, axis = 1 )
+        mTrain = ( mTrain.T / sumTrain ).T
+        mTest = ( mTest.T / sumTest ).T    
+        
+        #print(np.sum(mTrain, axis = 1), np.sum(mTest, axis = 1))
+        
+        #SET SOME  PARAMETERES
+        #FOR USE IN THE FOR LOOP
+        indexing = np.arange( dimXtrain )
+        logiProb = np.zeros([dimXtrain, n_clusters])
+       
+       
+        
+        #START FITTING ALGORITHM
+        #CORE
+        #setting the cross validation grid
+        param_grid = {'alpha': alpha}
+        for iter2 in np.arange( max_iter2 ):
+            #FITING THE L1 LOGISTIC REGRESSIONS
+            models = [] #EVERY IETARTION CHANGE MODELS 
+                        # IN ORDER TO TAKE THE MODELS OF LAST ITERATION
+                        #OR THE MODELS BEFORE ERROR GO BELOW TOLERANCE
+            for clust in np.arange( n_clusters ):
+                                                                 
+                #FIT THE L! LOGISTIC REGRESSION MODEL
+                #CROSS VALIDATION MAXIMIZING BE DEFAULT THE F1 SCORE
+                
+                sgd = SGDClassifier(loss = "log", penalty = penalty, 
+                                      n_jobs = -1, max_iter = max_iter,
+                                      random_state = 0, tol = tol2)
+                model = GridSearchCV( sgd, param_grid = param_grid, 
+                                  n_jobs = -1, 
+                                  scoring = scoring, cv = cv).\
+                                  fit(Xtrain, ytrain) #fit model 
+    
+#                model = LogisticRegressionCV(Cs = Cs, penalty = penalty,
+#                             scoring = scoring, random_state = 0, n_jobs = -1,
+#                             solver = solver, max_iter =
+#                             max_iter,cv = cv).fit( Xtrain[:, ind1], ytrain,
+#                             mTrain[:, clust] )
+                
+                #FOR EACH CLUSTER APPEND THE MODEL in MODELS
+                models.append( model )  
+               
+                #PREDICT PROBABILITIES FOR BEING IN CLASS 1 or 0
+                #FOR THE TRAINING DATA
+                proba = model.predict_proba( Xtrain[:, ind1] )
+                
+                #FOR EACH DATA POINT WE TAKE THE PROBABILITY 
+                # OF BEING IN THE CORRECT CLASS
+                #FOR EXAMPLE IF x1 BELONGS IN CLASS 1
+                # WE TAKE THE PROBABILITY PREDICTED BY THE CLUSTER 
+                # SPECIFIC MODEL OF BEING IN CLASS 1
+                #IF THIS IS HIGH IT WILL ENHANCE THE PROB FOR THE POINT TO BE
+                #IN THE CLUSTER...
+                logiProb[:, clust]  = proba[ indexing, ytrain ] 
+            
+            #print(logiProb[0,:])
+            #WE TAKE THE MEMBERSHIPS AND ALL THE DATA
+            #TO FIT THE GAUSSIANS USING THE EM ALGORITHM FOR GMM 
+            data = np.concatenate( ( Xtrain[:, ind2], Xtest[:, ind2] ),axis = 0)
+            mAll = np.concatenate( (mTrain, mTest ), axis = 0 )
+            
+            #params is  a dictionary with the following structure
+            #params = {'cov':cov, 'means': means, 'pis' : pis, 
+            #                 'probMat':probMat, 'Gmms': Gmms}
+            #cov: list of covariances
+            #means: list of means
+            #pis : list of probabilities of a specific gaussian to be chosen
+            #probMat: posterior probability membership matrix
+            #Gmms ; a list of Object with the Gaussians for each class
+            params = self.berModels( data, mAll )
+                
+            berProb = params['probMat']
+            #SOME DEBUGGING
+            #print(gmmProb)
+           # if iter2 == 1:
+             #return params
+                
+            #CALCULATE NEW MEMBERSHIPS FOR TRAIN AND TEST
+            mNewTest = berProb[dimXtrain :, :] + regk
+            mNewTrain = logiProb * berProb[0: dimXtrain, :] +regk
+                
+            #NORMALIZE NEWMEMBERSHIPS
+            sumTrain = np.sum( mNewTrain, axis = 1)
+            sumTest = np.sum( mNewTest, axis = 1 )
+           # print(sumTrain, sumTest)
+            mNewTrain = ( mNewTrain.T / sumTrain ).T
+            mNewTest = ( mNewTest.T / sumTest ).T  
                 
                 
+            #EVALUATE ERROR
+            errorTr = np.sum( np.abs( mTrain - mNewTrain) )
+            errorTst = np.sum( np.abs( mTest - mNewTest ) )
+            error = ( errorTr + errorTst )/( (dimXtrain + dimXtest)*n_clusters )
+            
+            #MAKE A SOFT CHANGE IN MEMEBRSHIPS MIXING OLD WITH NEW 
+            # MEMBERSHIPS WITH DEFAULT MIXING OF 0.5
+            mTrain = mNewTrain*mix + mTrain*(1-mix)
+            mTest = mNewTest*mix + mTest*(1-mix)
+            
+           # print( np.sum(mTrain, axis = 1))
+                
+            #SETTING ALL MODELS AS ATTRIBUTES OF THE CLASS
+            #SO WE CAN USE OUTSIDE OF THE CLASS TOO IF WE WANT FOR PREDICTION
+            #THIS MODEL ASSUMES THAT WE HAVE THE TEST DATA AND WE JUST
+            #DO NOT KNOW THE LABELS BECAUSE IT USES BOTH TRAIN AND TEST 
+            #IN CLUSTERING
+            
+                
+            print("GMM iteration: {}, error: {}".format(iter2, error))
+            if error < tol:
+                 break
+             
+        
+        self.mixesB = params['pis']
+        self.LogRegr = models
+        self.params = params        
+        #TAKING HARD CLUSTERS IN CASE WE WANT TO USE LATER       
+        testlabels = np.argmax( mTest, axis = 1 )
+        trainlabels = np.argmax( mTrain, axis = 1 )
+        
+        fitParams = {'mTrain' : mTrain, 'mTest': mTest, 'labTest': testlabels,
+                     'labTrain' : trainlabels }
+        self.mTrain = mTrain
+        self.mTest = mTest
+        self.fitParams = fitParams
+        
+        return self
+                         
                 
      #FITTING THE GAUSSIAN MIXTURE MODEL
              
@@ -409,6 +599,69 @@ class SupervisedGMM():
             
             return params
         
+##berModels UNDER CONSTRUCTION WORKING WITH BINARY DATA NOT SUFFICIENT TESTED        
+    def berModels(self, X, members):
+            
+            """
+                Calculates the Mixtures of Bernullis Parameters
+                
+                
+                X : Train and Test data together
+                members: Posterior Probabibilities for each cluster
+                             and each data point (memberships)
+                             
+                Returns: a list with the mean matrices of the Bernullis,
+                a list with the mixing parameteres,
+                
+                the probability matrix with the posteriors for each data
+                point and each cluster,
+                
+                All these it returns in the form of a dictionary
+                
+            """
+                
+            clusters = members.shape[1]
+            regk = (10**(-5)/clusters)
+           
+            means = [] #list of means Probabilities of clusteres
+            pis = [] #list of mixing coefficients
+            probMat = np.zeros( [X.shape[0], clusters] )
+           
+            logprobaMatrix = np.zeros([X.shape[0], clusters])
+                    
+            for cl in np.arange( clusters ):
+               
+                # FOR EACH CLUSTER USE THE EM ALGORITHM
+                # TO CREATE THE NEW MEMBERSHIP MATRIX OF THE GAUSSIANS
+                #IT IS NOT EXACTLY THE MEMBERSHIP BECAUSE IT IS
+                # NORMALIZED  AFTER THIS FUNCTION ENDS
+                mCl, piCl, logproba = self.calcBerPar( X, 
+                                                       members[:,cl])
+                   
+                logprobaMatrix[:,cl] = logproba 
+                
+               
+                means.append( mCl )
+                pis.append( piCl )
+                
+                
+           
+            
+            #find the maximum class log likelihood 
+            #for each data point
+            maxLog = np.max(logprobaMatrix, axis = 1)
+            #regularization  of the log likelihood matrix
+            logprobaMatrix = ( logprobaMatrix.T - maxLog).T
+            probMat = np.exp( logprobaMatrix ) + regk
+            sumRel = np.sum( probMat, axis = 1)
+            probMat = (probMat.T / sumRel).T
+            probMat = probMat*np.array(pis)
+            
+            params = { 'means': means, 'pis' : pis, 
+                          'probMat':probMat}
+            
+            return params
+        
     def calcGmmPar(self, X, memb, mcov):
         #CALCULATES PARAMETERS FOR EACH GAUSSIAN
         #FOR EACH CLUSTER
@@ -447,6 +700,44 @@ class SupervisedGMM():
        #np.max(proba )))
         #proba = model.cdf(X)*pk
         return covk, meank, pk, logproba, model
+
+###calcBerPar UNDER CONSTRUCTION WORKING WITH BINARY DATA NOT SUFFICIENT TESTED
+    def calcBerPar(self, X, memb):
+        #CALCULATES PARAMETERS FOR EACH Bernulli product
+        #FOR EACH CLUSTER
+        #RETURNS:
+       
+        #meank : mean vector of Bernulli of class k
+        #pk: mixing coefficient of Bernulli of class k
+        
+        #proba: the posterior probabilities, i.e probabilities of being
+        #in class k given X 
+        
+        Nk = np.sum(memb)
+        N = X.shape[0]
+        #mixing coefficient
+        pk = Nk/N  
+        #print("Minimum of memb {} max{}".format(np.min( memb), np.max( memb)))
+        meank = np.sum( ( X.T * memb ).T, axis = 0) / Nk +10**(-6)
+       
+        meankOne = 1-meank  + 10**(-6)
+        meanklog = np.log(meank)
+        meankOnelog = np.log(meankOne)
+        
+        #full covarinace
+        logProbTerm1 = np.sum( X * meanklog, axis = 1 )
+        logProbTerm2 = np.sum( (1-X) * meankOnelog, axis = 1)
+            
+       
+        
+        
+        logproba = logProbTerm1 + logProbTerm2 
+       #print( logproba )
+      
+       # print("min log prob {}, max of log prob {}".format( np.min(proba ),
+       #np.max(proba )))
+        #proba = model.cdf(X)*pk
+        return  meank, pk, logproba
     
 ###PREDICTIONS    
     def predict_prob_int(self, Xtest = None, Xtrain = None):  
