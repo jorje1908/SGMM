@@ -16,11 +16,12 @@ def warn(*args, **kwargs):
     pass
 import warnings
 warnings.warn = warn
-
+warnings.filterwarnings("ignore", category=DeprecationWarning)
 from sklearn.model_selection import train_test_split
 #from sklearn.cluster import KMeans
 #from sklearn.linear_model import SGDClassifier
-from sklearn.linear_model import LogisticRegressionCV
+from sklearn.linear_model import LogisticRegressionCV, SGDClassifier
+from sklearn.model_selection import GridSearchCV
 #from sklearn.metrics import precision_score, accuracy_score, recall_score, \
 #balanced_accuracy_score, f1_score
 #from sklearn.mixture import GaussianMixture
@@ -41,22 +42,27 @@ class SupervisedGMM():
     """
     
     
-    def __init__(self, max_iter = 100, cv = 2, mix = 0.5, Cs = [1000], 
+    def __init__(self, max_iter = 5, cv = 2, mix = 0.5, Cs = [1000], 
+                 alpha = [0.0001],
                  max_iter2 = 10, penalty = 'l1', scoring = 'f1',
-                 solver = 'saga', n_clusters = 2, tol = 10**(-3 ),
+                 solver = 'saga', n_clusters = 2, tol = 10**(-3 ) , 
+                 mcov = 'diag', tol2 = 10**(-3)
                  ):
         
         
         
         """ LOGISTIC REGRESSION PARAMETERES:
             
-            max_iter:[INT] #Iterations of Opt Algorithm: DEF: 100
+            max_iter:[INT] #Number of epochs of SGD default 5
             cv:[INT] Cross Validation: Default 3 Fold
             Cs: [LIST] Inverse of Regularization Parameter: DEF: 1000
+            alpha: regularization but not inverese, for the stochastic 
+            gradient descend
             penlaty:[FLOAT] Regularization
             solver: [STRING] DEF: 'saga', Solvers used by scikit learn
             for logistic Regression 
             scoring:[STRING] score to optimize in cross validation: DEF: 'f1'
+            tol2 = stochastic gradient descent tolerance: Def 10^(-3)
             
                  
             
@@ -64,6 +70,8 @@ class SupervisedGMM():
             mix: In what Percentages to Upadate Memberships: DEF: 0.5   
             max_iter2: Maximum # of EM Iterations, DEF: 10 
             n_clusters: #of Soft Clusters: DEF: 2
+            cov = 'full' or 'diag', full means 'full' covariance,
+                   'diag' means diagonal covariance
            
             
                 
@@ -81,12 +89,15 @@ class SupervisedGMM():
         self._cv = cv
         self._mix = mix
         self._Cs = Cs
+        self._alpha = alpha
         self._max_iter2 =  max_iter2
         self._penalty = penalty
         self._scoring = scoring
         self._solver = solver
         self._n_clusters = n_clusters
         self._tol = tol
+        self._tol2 = tol2
+        self._mcov = mcov
         
         
         #THE FOLLOWING ATTRIBUTES ARE SETTED AFTER FITTING THE ALGORITHM
@@ -176,11 +187,15 @@ class SupervisedGMM():
         dimXtrain = Xtrain.shape[0]
         dimXtest = Xtest.shape[0]
         Cs = self._Cs
+        alpha = self._alpha
         tol = self._tol
+        tol2 = self._tol2
+        mcov = self._mcov
         #regularize the sums  for numerical instabilities
-        reg = 10**(-5)*0
+        reg = 10**(-5)
         #regularization to be added to every memebership entry
         regk = reg/n_clusters
+        
         
         
         
@@ -209,6 +224,8 @@ class SupervisedGMM():
         
         #START FITTING ALGORITHM
         #CORE
+        #setting the cross validation grid
+        param_grid = {'alpha': alpha}
         for iter2 in np.arange( max_iter2 ):
             #FITING THE L1 LOGISTIC REGRESSIONS
             models = [] #EVERY IETARTION CHANGE MODELS 
@@ -218,11 +235,20 @@ class SupervisedGMM():
                                                                  
                 #FIT THE L! LOGISTIC REGRESSION MODEL
                 #CROSS VALIDATION MAXIMIZING BE DEFAULT THE F1 SCORE
-                model = LogisticRegressionCV(Cs = Cs, penalty = penalty,
-                             scoring = scoring, random_state = 0, n_jobs = -1,
-                             solver = solver, max_iter =
-                             max_iter,cv = cv).fit( Xtrain[:, ind1], ytrain,
-                             mTrain[:, clust] )
+                
+                sgd = SGDClassifier(loss = "log", penalty = penalty, 
+                                      n_jobs = -1, max_iter = max_iter,
+                                      random_state = 0, tol = tol2)
+                model = GridSearchCV( sgd, param_grid = param_grid, 
+                                  n_jobs = -1, 
+                                  scoring = scoring, cv = cv).\
+                                  fit(Xtrain, ytrain) #fit model 
+    
+#                model = LogisticRegressionCV(Cs = Cs, penalty = penalty,
+#                             scoring = scoring, random_state = 0, n_jobs = -1,
+#                             solver = solver, max_iter =
+#                             max_iter,cv = cv).fit( Xtrain[:, ind1], ytrain,
+#                             mTrain[:, clust] )
                 
                 #FOR EACH CLUSTER APPEND THE MODEL in MODELS
                 models.append( model )  
@@ -254,7 +280,7 @@ class SupervisedGMM():
             #pis : list of probabilities of a specific gaussian to be chosen
             #probMat: posterior probability membership matrix
             #Gmms ; a list of Object with the Gaussians for each class
-            params = self.gmmModels( data, mAll )
+            params = self.gmmModels( data, mAll, mcov )
                 
             gmmProb = params['probMat']
             #SOME DEBUGGING
@@ -319,7 +345,7 @@ class SupervisedGMM():
                 
      #FITTING THE GAUSSIAN MIXTURE MODEL
              
-    def gmmModels(self, X, members ):
+    def gmmModels(self, X, members, mcov ):
             
             """
                 Calculates the Mixtures of Gaussians Parameters
@@ -341,7 +367,7 @@ class SupervisedGMM():
             """
                 
             clusters = members.shape[1]
-            regk = (10**(-5)/clusters)*0
+            regk = (10**(-5)/clusters)
             cov = [] #list with covariance matrices
             means = [] #list of means
             pis = [] #list of mixing coefficients
@@ -356,7 +382,8 @@ class SupervisedGMM():
                 #IT IS NOT EXACTLY THE MEMBERSHIP BECAUSE IT IS
                 # NORMALIZED  AFTER THIS FUNCTION ENDS
                 covCl, mCl, piCl, logproba, model = self.calcGmmPar( X, 
-                                                                members[:,cl]) 
+                                                                members[:,cl],
+                                                                mcov) 
                    
                 logprobaMatrix[:,cl] = logproba 
                 
@@ -382,7 +409,7 @@ class SupervisedGMM():
             
             return params
         
-    def calcGmmPar(self, X, memb):
+    def calcGmmPar(self, X, memb, mcov):
         #CALCULATES PARAMETERS FOR EACH GAUSSIAN
         #FOR EACH CLUSTER
         #RETURNS:
@@ -399,7 +426,16 @@ class SupervisedGMM():
         pk = Nk/N  
         #print("Minimum of memb {} max{}".format(np.min( memb), np.max( memb)))
         meank = np.sum( ( X.T * memb ).T, axis = 0) / Nk
-        covk =  memb*( X - meank ).T @ ( X - meank) + np.eye(X.shape[1])*10**(-4)
+        #full covarinace
+        if mcov is 'full':
+           # print('Here 1')
+            covk =  (memb*( X - meank ).T)@ ( X - meank) \
+                                                + np.eye(X.shape[1])*10**(-4)
+        else:#diagonal covariance
+            covk = np.sum( memb*( np.square( X-meank ).T ), axis = 1 ) 
+            covk = np.diag( covk )  + np.eye(X.shape[1])*10**(-4)
+           # print( covk.shape , 'Here 2')
+            
         covk = covk/Nk
         #eige = np.linalg.eigvals(covk)
         #print(np.min(eige))
