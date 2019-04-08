@@ -12,7 +12,7 @@ from sklearn.model_selection import GridSearchCV
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.neural_network import MLPClassifier
 from sklearn.cluster import KMeans
-
+from sklearn.ensemble import AdaBoostClassifier
 
 
 
@@ -106,6 +106,25 @@ def randomforests(Xtrain = None, ytrain = None, Xtest = None,
     forest  = RandomForestClassifier()
     
     model = GridSearchCV( forest, param_grid = param_grid, 
+                                  n_jobs = -1, 
+                                  scoring = scoring, cv = cv).\
+                                  fit(Xtrain, ytrain) #fit model 
+    
+    
+    probTrain = model.predict_proba( Xtrain )[:, 1]
+    probTest = model.predict_proba( Xtest )[:, 1]
+     
+    params = {'model': model, 'probTrain': probTrain, 'probTest': probTest}
+    
+    return params, probTest, probTrain
+
+def xboost(Xtrain = None, ytrain = None, Xtest = None,
+                          ytest = None, cv = 2, scoring = 'f1'):
+    
+    param_grid = {'n_estimators' : [20,  40, 60, 80, 100, 120, 150] }
+    ada = AdaBoostClassifier()
+    
+    model = GridSearchCV( ada, param_grid = param_grid, 
                                   n_jobs = -1, 
                                   scoring = scoring, cv = cv).\
                                   fit(Xtrain, ytrain) #fit model 

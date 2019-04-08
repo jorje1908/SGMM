@@ -15,14 +15,14 @@ def warn(*args, **kwargs):
     pass
 import warnings
 warnings.warn = warn
-
+warnings.filterwarnings("ignore", category=DeprecationWarning)
 
 from supervisedGmm import SupervisedGMM
 from metricsFunctions import calc_metrics, metrics_cluster, optimalTau
 #from superGmmMother import superGmmMother
 from loaders2 import loader
 from mlModels import logisticRegressionCv2, neural_nets, randomforests,\
-kmeansLogRegr
+kmeansLogRegr, xboost
 
 np.random.seed( seed = 0)
 ###############################################################################
@@ -42,7 +42,13 @@ columns = ['cluster', 'size', 'high_cost%','low_cost%',
 
 ##Fitting SGMM
 Cs = [ 0.01, 0.01, 1, 10, 100, 1000 ]
-model = SupervisedGMM( Cs = Cs, n_clusters = 2)
+alpha = [0.1, 0.01, 0.001, 0.0001, 10**(-7), 1 ]
+model = model = SupervisedGMM( Cs = Cs, n_clusters = 4, max_iter2 = 15,
+                               tol = 10**(-6),
+                               max_iter = 10,
+                               alpha = alpha,
+                               mcov = 'diag')
+
 Xtrain, Xtest, ytrain, ytest = model.split( data = data.values)
 model = model.fit( Xtrain = Xtrain, Xtest = Xtest, ytrain = ytrain)
 
@@ -134,6 +140,19 @@ metTestRF = pd.DataFrame( [metTest], columns = columns)
 metTrainRF = pd.DataFrame( [metTrain], columns = columns)
 
 
+###############################################################################
+
+#Ada boost
+params, probTest, probTrain = xboost(Xtrain = Xtrain, ytrain = ytrain,
+                                            Xtest = Xtest, ytest = ytest)
+
+tau = optimalTau(probTrain, ytrain)
+metTest,_ = calc_metrics(custom_prob = probTest.copy(), tau = tau, y = ytest)
+metTrain ,_= calc_metrics(custom_prob = probTrain.copy(), tau = tau, y = ytrain)
+
+#PANDA MATRICES
+metTestXB = pd.DataFrame( [metTest], columns = columns)
+metTrainXB = pd.DataFrame( [metTrain], columns = columns)
 
 
 
