@@ -1,14 +1,13 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Created on Sat Apr  6 22:10:04 2019
+Created on Tue Apr  9 14:13:52 2019
 
 @author: george
 """
 
 import numpy as np
 import pandas as pd
-
 
 
 def warn(*args, **kwargs):
@@ -25,13 +24,16 @@ from loaders2 import loader
 from mlModels import logisticRegressionCv2, neural_nets, randomforests,\
 kmeansLogRegr
 
+from visualFunctions import CreateClouds, CreateCloudsWeights
+
+
 np.random.seed( seed = 0)
 ###############################################################################
 
 #READING DATA SETTING COLUMNS NAMES FOR METRICS
 file1 = '/home/george/github/sparx/data/sparcs00.h5'
 file2 = '/home/george/github/sparx/data/sparcs01.h5'
-data, dataS, idx = loader(20000, 300, file1, file2)
+data, dataS, idx = loader(2000, 300, file1, file2)
 
 
 cols = data.columns
@@ -48,9 +50,9 @@ columns = ['cluster', 'size', 'high_cost%','low_cost%',
 
 ##Fitting SGMM
 Cs = [  10 ]
-alpha = [0.1, 0.0001, 2 ]
-model = SupervisedGMM( Cs = Cs, n_clusters = 4, max_iter2 = 5, tol = 10**(-6),
-                                                              max_iter = 5,
+alpha = [0.1, 0.0001, 2, 0.001]
+model = SupervisedGMM( Cs = Cs, n_clusters = 3, max_iter2 = 7, tol = 10**(-6),
+                                                              max_iter = 4,
                                                               alpha = alpha,
                                                               mcov = 'diag')
 
@@ -82,4 +84,16 @@ metCTrainSGMM, metCTestSGMM = metrics_cluster(models = logisRegre,
 metTestSGMM = pd.DataFrame( [metTest], columns = columns)
 metTrainSGMM = pd.DataFrame( [metTrain], columns = columns)
 
-###############################################################################
+##############################################################################
+#TEST VISUALIZATIONS
+w = model.weights
+means = model.means
+mixes = model.mixes
+cova = model.cov
+
+dictsClouds = CreateClouds(data = Xtrain, labels = labTrain, names = colss,
+                           n_clusters = 3, dirCreate = 0)
+
+dictsWeights = CreateCloudsWeights( weights = w, names = colss, n_clusters = 3,
+                                    dirCreate = 0)
+

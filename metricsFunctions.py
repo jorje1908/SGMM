@@ -90,7 +90,7 @@ def CalculateSoftLogReg( models = [],  Xtrain = [], Xtest = [], ytrain = [],
             return metricsTrain, metricsTest, roc1, roc2, tau
         
         
-def optimalTau(probabilities, ylabels, returnAll = 0):
+def optimalTau(probabilities, ylabels, returnAll = 0, mode = 0):
             
             """ Finds the Optimal tau based on the F1 score
                 Input: Probabilities of train data of being class 1,
@@ -127,6 +127,9 @@ def optimalTau(probabilities, ylabels, returnAll = 0):
             
             threshold = 0
             prob_F1 = [[threshold, f1]]
+            prec = precision
+            rec = recall
+            metOld = [f1, precision, recall]
             
             for i, probability in enumerate( probabilities1 ):
                 
@@ -157,15 +160,17 @@ def optimalTau(probabilities, ylabels, returnAll = 0):
                 else:
                     
                     f1new = ( 2*precision*recall )/( precision + recall )  
+                    metNew = [f1new, precision, recall]
                 
-                prob_F1.append( [probability, f1new] )   #thresholds with F1 scores if you want to draw a graph
+                prob_F1.append( [probability, metNew[mode]] )   #thresholds with F1 scores if you want to draw a graph
                 
-                if f1new >= f1 :
+                if metNew[mode] >= metOld[mode] :
                     threshold = probability
                     f1 = f1new
                     prec = precision  #you can return precision
                     rec = recall      #you can return  recall
-                                      # these are mostly for correctness
+                    metOld  = [f1, prec, rec]
+                                        # these are mostly for correctness
                                       #checking
             if returnAll == 1:
                 params = {'tau': threshold, 'curve': np.array(prob_F1), 

@@ -43,7 +43,7 @@ columns = ['cluster', 'size', 'high_cost%','low_cost%',
 ##Fitting SGMM
 Cs = [ 0.01, 0.01, 1, 10, 100, 1000 ]
 alpha = [0.1, 0.01, 0.001, 0.0001, 10**(-7), 1 ]
-model = model = SupervisedGMM( Cs = Cs, n_clusters = 4, max_iter2 = 15,
+model =  SupervisedGMM( Cs = Cs, n_clusters = 4, max_iter2 = 2,
                                tol = 10**(-6),
                                max_iter = 10,
                                alpha = alpha,

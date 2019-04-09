@@ -15,8 +15,9 @@ from pathlib import Path
 
 
 def CreateClouds( data = None, labels = None, names = None, 
-                 n_clusters = None, save = 1, dirCreate = 1, filename = None,
-                                                 dirName = None, TFIDF = 1 ):
+                 n_clusters = None, save = 1, dirCreate = 1, 
+                                                 filename = 'Clouds',
+                                                 dirName = 'Cdir', TFIDF = 1 ):
     
     
     
@@ -40,14 +41,15 @@ def CreateClouds( data = None, labels = None, names = None,
      for  i in np.arange( n_clusters ):
          
          filenamenew = filename + str(i)
-         clouds(counts = dictions[i], filename = filenamenew, dirName = dirName)
+         clouds(counts = dictions[i], filename = filenamenew,
+                dirName = dirName, dirCreate = dirCreate)
          
      return dictions
         
     
 def CreateCloudsWeights( weights = None, names = None, n_clusters = None,
-                                    save = 1, dirCreate = 1, filename = None,
-                                                 dirName = None, number = 50 ):
+                                    save = 1, dirCreate = 1, filename = 'WC',
+                                                 dirName = 'WCC', number = 50 ):
     
     """SAME AS CreateClouds but now it takes as inputs a list of each class
        weights and makes the clouds based on them """
@@ -60,8 +62,10 @@ def CreateCloudsWeights( weights = None, names = None, n_clusters = None,
         filenamePos = filename+'Pos'+str(i)
         filenameNeg = filename+'Neg'+str(i)
         
-        clouds( counts = dictP[i], filename = filenamePos, dirName = dirName)
-        clouds( counts = dictN[i], filename = filenameNeg, dirName = dirName)
+        clouds( counts = dictP[i], filename = filenamePos, dirName = dirName,
+                                                       dirCreate = dirCreate)
+        clouds( counts = dictN[i], filename = filenameNeg, dirName = dirName,
+                                                       dirCreate = dirCreate)
     
     params = {'dictp':dictP, 'dictN': dictN}   
     
@@ -73,7 +77,8 @@ def CreateCloudsWeights( weights = None, names = None, n_clusters = None,
     
 
 def clouds( counts = None, dirCreate = 1, save = 1, filename = None,
-                                                     dirName = None):
+                                                     dirName = None,
+                                                     ):
     
     
     """
@@ -95,8 +100,14 @@ def clouds( counts = None, dirCreate = 1, save = 1, filename = None,
     #plot the cloud                 
     fig, ax = plt.subplots(nrows = 1, ncols = 1)
     fig.set_size_inches(12,12)
+    
+    
     ax.imshow(cloud, interpolation = 'bilinear')
     ax.axis('off')
+    
+    
+       
+    
                       
     #save the file
     if save == 1:
@@ -238,5 +249,7 @@ def calcTFIDF(  data = None, labels = None, n_clusters = None ):
            tfIdf[i] = np.ceil(tfIdf[i]  * np.log( n_clusters / ( idf ) ))
                 
        print(max(idf), n_clusters)    
-       return tfIdf        
+       return tfIdf   
+
+    
    

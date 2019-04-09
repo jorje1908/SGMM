@@ -113,8 +113,18 @@ class SupervisedGMM():
                               #hard clustering labels of test and train data
         #separete attributes for memberships for train
         #and test data
+        #GAUSSIAN'S MEANS AND COVARINACES
+        self.means = None 
+        self.cov = None
+        #LOGISTIC REGRESSION WEIGHTS
+        self.weights = None
+        
+        #TRAIN AND TEST MEMBERSHIP
         self.mTrain = None
         self.mTest = None
+        
+        #IF MODEL IS FITTED OR NOT
+        self.fitted = None
         
     #HELPER   
     def split(self, data = None, X = None, y = None, split = 0.2):
@@ -162,7 +172,7 @@ class SupervisedGMM():
         #CHECK IF ALL DATA ARE GIVEN
         self.ind1 = ind1
         self.ind2 = ind2
-        
+        self.fitted = 1
         if Xtrain is None or ytrain is None or Xtest is None :
             print(" Please Give Xtrain, ytrain, Xtest  data ")
             return
@@ -337,6 +347,10 @@ class SupervisedGMM():
         self.mTrain = mTrain
         self.mTest = mTest
         self.fitParams = fitParams
+        
+        #set the weights of LOGREG MEANS AND COVARIANCES OF GAUSSIANS
+        self.setWeights()
+        self.setGauss( params )
         
         return self
             
@@ -810,7 +824,32 @@ class SupervisedGMM():
         return membership
             
                 
+    def setWeights( self ):
+        #setting logistic regression weights for each cluster
+        if self.fitted == None:
+            print("MODEL IS NOT FITTED YET")
+            
+        models = self.LogRegr
         
+        weights = []
+        for model in models:
+            weight = model.best_estimator_.coef_.tolist()[0]
+            weights.append( weight )
+        
+        self.weights = weights
+        
+        return
+    
+    
+    def setGauss( self, params ):
+        #SETTING MEANS AND COVARIANCES OF THE GAUSSIANS
+        if self.fitted == None:
+            print("MODEL IS NOT FITTED YET")
+            
+        self.means = params['means']
+        self.cov = params['cov']
+        
+        return
         
         
         
