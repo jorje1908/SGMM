@@ -24,7 +24,8 @@ from loaders2 import loader
 from mlModels import logisticRegressionCv2, neural_nets, randomforests,\
 kmeansLogRegr
 
-from visualFunctions import CreateClouds, CreateCloudsWeights, plot_parallel
+from visualFunctions import CreateClouds, CreateCloudsWeights, plot_parallel,\
+findbinary, heatmap
 
 
 np.random.seed( seed = 0)
@@ -98,3 +99,7 @@ cova = model.cov
                                   # dirCreate = 0)
 indx = np.arange(1, 5, 1).tolist()
 d = plot_parallel(w, colss[:-1], indx, scale = 0)
+heatmap( w, colss[:-1], indx)
+
+
+

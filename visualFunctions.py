@@ -13,6 +13,7 @@ from wordcloud import WordCloud, STOPWORDS
 from pathlib import Path
 from pandas.plotting import parallel_coordinates
 from sklearn.preprocessing import StandardScaler
+import seaborn as sns
 
 #RELATED TO WORDCLOUDS
 
@@ -281,7 +282,7 @@ def plot_parallel( data, columns, indx, scale = 0):
          data  = pd.DataFrame( data, columns = columns)
     
     data['clusters'] = np.arange( data.shape[0] )
-    dataIndex =  indx
+    dataIndex =  indx.copy()
     dataIndex.append( data.shape[1] -1)
     ax = parallel_coordinates( data.iloc[:, dataIndex], 'clusters')
                               #,use_columns = True)
@@ -298,6 +299,21 @@ def plot_parallel( data, columns, indx, scale = 0):
     
    
     return ax
+
+#HEATMAPS
+def heatmap( data, columns, index, annot = False, fmt = '.1f' ):
+    
+    data = pd.DataFrame( data, columns = columns)
+    data = data.iloc[:, index]
+    
+    fig, ax = plt.subplots(1, 1, figsize = (9,6))
+    ax = sns.heatmap( data, annot = annot, fmt = fmt, ax = ax)
+    
+    ax.set_title(' Heatmap of Clusters Versus Features ')
+    ax.set_xlabel( 'Features ')
+    ax.set_ylabel( 'Clusters' )
+    plt.show()
+
     
     
 #SOME HELPER FUNCTIONS
