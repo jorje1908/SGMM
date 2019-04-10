@@ -7,12 +7,14 @@ Created on Tue Apr  2 11:13:59 2019
 """
 
 import numpy as np
-#import pandas as pd
+import pandas as pd
 import  matplotlib.pyplot as plt
 from wordcloud import WordCloud, STOPWORDS
 from pathlib import Path
+from pandas.plotting import parallel_coordinates
+from sklearn.preprocessing import StandardScaler
 
-
+#RELATED TO WORDCLOUDS
 
 def CreateClouds( data = None, labels = None, names = None, 
                  n_clusters = None, save = 1, dirCreate = 1, 
@@ -251,5 +253,84 @@ def calcTFIDF(  data = None, labels = None, n_clusters = None ):
        print(max(idf), n_clusters)    
        return tfIdf   
 
+  
+#PARALLEL COORDINATES    
+       
+def plot_parallel( data, columns, indx, scale = 0):
+    """THIS CAN BE USED TO PLOT THE MEANS
+    OF THE CLUSTERS AS PARALLEL COORDINATES
+    Parallel Coordinates Plot for Multi Dimensional
+    Features Visualization
+    data: A data matrix of the form observations-features
+    columns: the names of the columns corresponding  to features
+    indx:  a list of the features to pick (ideal 3-10 above that it becomes
+    messy) of the form of  index numbers ex [1,2, 10, 70, 5,...]
+    range of indexes 0 to number of features -1
+    scale: if you want to use a row wise standard scaler of the means
+    and variance: Defauly scale = 0 which means no scale, scale = 1 means do
+    scaling
+    
+    """
+    
+    #length = len(data[0])
+    if scale == 1:
+        dataNp = np.array(data)
+        std = StandardScaler().fit_transform(dataNp)
+        data  = pd.DataFrame( std, columns = columns)
+    else:
+         data  = pd.DataFrame( data, columns = columns)
+    
+    data['clusters'] = np.arange( data.shape[0] )
+    dataIndex =  indx
+    dataIndex.append( data.shape[1] -1)
+    ax = parallel_coordinates( data.iloc[:, dataIndex], 'clusters')
+                              #,use_columns = True)
+                             # xticks = np.arange(len(dataIndex) -1) )
+    ax.set_title('Parallel Coordinates Plot')
+    ax.set_ylabel('Feature Value')
+    ax.set_xlabel('Features')
+    plt.show()
+    #ax.grid(b = False)
+    #plt.axis('off')
+    #ax.set_xticks([])
+   # ax.set_yticks([])
+   
+    
+   
+    return ax
+    
+    
+#SOME HELPER FUNCTIONS
+def findbinary( data, columnNames = None ):
+    """
+    Finds all the columns with binary values [0,1]
+    data: Numpy array of data
+    columnNames: optional give the names of the features
+    """
+    binIndex = []
+    names = []
+    
+    for i in np.arange( data.shape[1] ):
+        
+        if np.isin([0,1],data[:, i]).all() == True:
+            binIndex.append(i)
+            
+            if columnNames is not None:
+                names.append( columnNames[i] )
+    
+    return binIndex, names
+        
+        
+        
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
     
    

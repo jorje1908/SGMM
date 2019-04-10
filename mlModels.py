@@ -13,7 +13,7 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn.neural_network import MLPClassifier
 from sklearn.cluster import KMeans
 from sklearn.ensemble import AdaBoostClassifier
-
+from sklearn.ensemble import GradientBoostingClassifier
 
 
 
@@ -102,7 +102,8 @@ def randomforests(Xtrain = None, ytrain = None, Xtest = None,
     
     "RANDOM FOREST CLASSIFIER"
     
-    param_grid = {'n_estimators' : [20,  40, 60, 80, 100, 120, 150] }
+    param_grid = {'n_estimators' : [20,  40, 60, 80, 100, 120, 150,500,900,
+                                    1100] }
     forest  = RandomForestClassifier()
     
     model = GridSearchCV( forest, param_grid = param_grid, 
@@ -121,7 +122,8 @@ def randomforests(Xtrain = None, ytrain = None, Xtest = None,
 def xboost(Xtrain = None, ytrain = None, Xtest = None,
                           ytest = None, cv = 2, scoring = 'f1'):
     
-    param_grid = {'n_estimators' : [20,  40, 60, 80, 100, 120, 150] }
+    param_grid = {'n_estimators' : [20,  40, 60, 80, 100, 120, 150, 700,
+                                    900, 1100] }
     ada = AdaBoostClassifier()
     
     model = GridSearchCV( ada, param_grid = param_grid, 
@@ -138,6 +140,27 @@ def xboost(Xtrain = None, ytrain = None, Xtest = None,
     return params, probTest, probTrain
    
     
+def gradboost(Xtrain = None, ytrain = None, Xtest = None,
+                          ytest = None, cv = 2, scoring = 'f1'):
     
+    "RANDOM FOREST CLASSIFIER"
+    
+    param_grid = {'n_estimators' : [20,  40, 60, 80, 100, 120, 150, 300, 500,
+                                    700, 800, 900]}
+    grad  = GradientBoostingClassifier(subsample = 0.5, max_features = 'sqrt',
+                                       learning_rate = 0.01, max_depth = 3)
+    
+    model = GridSearchCV( grad, param_grid = param_grid, 
+                                  n_jobs = -1, 
+                                  scoring = scoring, cv = cv).\
+                                  fit(Xtrain, ytrain) #fit model 
+    
+    
+    probTrain = model.predict_proba( Xtrain )[:, 1]
+    probTest = model.predict_proba( Xtest )[:, 1]
+     
+    params = {'model': model, 'probTrain': probTrain, 'probTest': probTest}
+    
+    return params, probTest, probTrain
     
     

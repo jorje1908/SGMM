@@ -22,7 +22,7 @@ from metricsFunctions import calc_metrics, metrics_cluster, optimalTau
 #from superGmmMother import superGmmMother
 from loaders2 import loader
 from mlModels import logisticRegressionCv2, neural_nets, randomforests,\
-kmeansLogRegr, xboost
+kmeansLogRegr, xboost, gradboost
 
 np.random.seed( seed = 0)
 ###############################################################################
@@ -154,6 +154,19 @@ metTrain ,_= calc_metrics(custom_prob = probTrain.copy(), tau = tau, y = ytrain)
 metTestXB = pd.DataFrame( [metTest], columns = columns)
 metTrainXB = pd.DataFrame( [metTrain], columns = columns)
 
+###############################################################################
+
+#Grad boost
+params, probTest, probTrain = gradboost(Xtrain = Xtrain, ytrain = ytrain,
+                                            Xtest = Xtest, ytest = ytest)
+
+tau = optimalTau(probTrain, ytrain)
+metTest,_ = calc_metrics(custom_prob = probTest.copy(), tau = tau, y = ytest)
+metTrain ,_= calc_metrics(custom_prob = probTrain.copy(), tau = tau, y = ytrain)
+
+#PANDA MATRICES
+metTestGB = pd.DataFrame( [metTest], columns = columns)
+metTrainGB = pd.DataFrame( [metTrain], columns = columns)
 
 
 

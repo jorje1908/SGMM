@@ -24,7 +24,7 @@ from loaders2 import loader
 from mlModels import logisticRegressionCv2, neural_nets, randomforests,\
 kmeansLogRegr
 
-from visualFunctions import CreateClouds, CreateCloudsWeights
+from visualFunctions import CreateClouds, CreateCloudsWeights, plot_parallel
 
 
 np.random.seed( seed = 0)
@@ -33,7 +33,7 @@ np.random.seed( seed = 0)
 #READING DATA SETTING COLUMNS NAMES FOR METRICS
 file1 = '/home/george/github/sparx/data/sparcs00.h5'
 file2 = '/home/george/github/sparx/data/sparcs01.h5'
-data, dataS, idx = loader(2000, 300, file1, file2)
+data, dataS, idx = loader(5000, 300, file1, file2)
 
 
 cols = data.columns
@@ -51,8 +51,8 @@ columns = ['cluster', 'size', 'high_cost%','low_cost%',
 ##Fitting SGMM
 Cs = [  10 ]
 alpha = [0.1, 0.0001, 2, 0.001]
-model = SupervisedGMM( Cs = Cs, n_clusters = 3, max_iter2 = 7, tol = 10**(-6),
-                                                              max_iter = 4,
+model = SupervisedGMM( Cs = Cs, n_clusters = 12, max_iter2 = 5, tol = 10**(-6),
+                                                              max_iter = 5,
                                                               alpha = alpha,
                                                               mcov = 'diag')
 
@@ -91,9 +91,10 @@ means = model.means
 mixes = model.mixes
 cova = model.cov
 
-dictsClouds = CreateClouds(data = Xtrain, labels = labTrain, names = colss,
-                           n_clusters = 3, dirCreate = 0)
+#dictsClouds = CreateClouds(data = Xtrain, labels = labTrain, names = colss,
+                          # n_clusters = 3, dirCreate = 0)
 
-dictsWeights = CreateCloudsWeights( weights = w, names = colss, n_clusters = 3,
-                                    dirCreate = 0)
-
+#dictsWeights = CreateCloudsWeights( weights = w, names = colss, n_clusters = 3,
+                                  # dirCreate = 0)
+indx = np.arange(1, 5, 1).tolist()
+d = plot_parallel(w, colss[:-1], indx, scale = 0)

@@ -253,7 +253,9 @@ class SupervisedGMM():
                 model = GridSearchCV( sgd, param_grid = param_grid, 
                                   n_jobs = -1, 
                                   scoring = scoring, cv = cv).\
-                                  fit(Xtrain, ytrain) #fit model 
+                                  fit(Xtrain, ytrain,
+                                      sample_weight = mTrain[:, clust]
+                                      ) #fit model 
     
 #                model = LogisticRegressionCV(Cs = Cs, penalty = penalty,
 #                             scoring = scoring, random_state = 0, n_jobs = -1,
