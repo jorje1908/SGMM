@@ -191,7 +191,11 @@ def CalculateWeights( weights = None, names = None, n_clusters = None,
         w = np.array( weights[i] )
         #TAKE POSITIVE AND NEGATIVE WEIGHTS (some might be 0)
         wpos = w[ np.where( w > 0)[0] ]
-        wneg = np.abs( w[ np.where( w < 0)[0] ] )
+        namesPos =  np.array( names )[ np.where( w > 0)[0]].tolist()
+        
+        #wneg = np.abs( w[ np.where( w < 0)[0] ] )
+        wneg = ( w[ np.where( w < 0)[0] ] )
+        namesNeg =  np.array( names )[ np.where( w < 0)[0]].tolist()
         
         #SORT THE INDEXES OF THE POS AND NEG WEIGHTS
         spos = np.argsort( wpos )
@@ -205,11 +209,12 @@ def CalculateWeights( weights = None, names = None, n_clusters = None,
         
         #TAKE THE TOP "NUMBER" NUMBER OF INDEXES
         indexPos = spos[-numberPos : ]
-        indexNeg = sneg[-numberNeg : ]    
+        #indexNeg = sneg[-numberNeg : ]    
+        indexNeg = sneg[ 0: numberNeg  ]   
         
         #TAKE THE CORRESPONDING NAMES
-        namesPos = np.array( names )[indexPos].tolist()
-        namesNeg =  np.array( names )[indexNeg].tolist()
+        namesPos = np.array( namesPos )[indexPos].tolist()
+        namesNeg =  np.array( namesNeg )[indexNeg].tolist()
         
         dPos = dict( zip( namesPos, wpos ))
         dNeg = dict( zip( namesNeg, wneg ))

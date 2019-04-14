@@ -52,7 +52,7 @@ columns = ['cluster', 'size', 'high_cost%','low_cost%',
 ##Fitting SGMM
 Cs = [  10 ]
 alpha = [0.1, 0.0001, 2, 0.001]
-model = SupervisedGMM( Cs = Cs, n_clusters = 12, max_iter2 = 5, tol = 10**(-6),
+model = SupervisedGMM( Cs = Cs, n_clusters = 2, max_iter2 = 5, tol = 10**(-6),
                                                               max_iter = 5,
                                                               alpha = alpha,
                                                               mcov = 'diag')
@@ -93,10 +93,10 @@ mixes = model.mixes
 cova = model.cov
 
 #dictsClouds = CreateClouds(data = Xtrain, labels = labTrain, names = colss,
-                          # n_clusters = 3, dirCreate = 0)
+                          # n_clusters = 3, dirCreate = 0, TFIDF = 1)
 
-#dictsWeights = CreateCloudsWeights( weights = w, names = colss, n_clusters = 3,
-                                  # dirCreate = 0)
+dictsWeights = CreateCloudsWeights( weights = w, names = colss, n_clusters = 2,
+                                  dirCreate = 1)
 indx = np.arange(1, 5, 1).tolist()
 d = plot_parallel(w, colss[:-1], indx, scale = 0)
 heatmap( w, colss[:-1], indx)
