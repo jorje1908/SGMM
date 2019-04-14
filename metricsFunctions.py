@@ -19,7 +19,7 @@ warnings.warn = warn
 #from sklearn.model_selection import train_test_split
 #from sklearn.cluster import KMeans
 #from sklearn.linear_model import SGDClassifier
-from sklearn.linear_model import LogisticRegressionCV
+#from sklearn.linear_model import LogisticRegressionCV
 from sklearn.metrics import precision_score, accuracy_score, recall_score, \
  balanced_accuracy_score, f1_score
 #from sklearn.mixture import GaussianMixture
@@ -90,15 +90,23 @@ def CalculateSoftLogReg( models = [],  Xtrain = [], Xtest = [], ytrain = [],
             return metricsTrain, metricsTest, roc1, roc2, tau
         
         
-def optimalTau(probabilities, ylabels, returnAll = 0, mode = 0):
+def optimalTau(probabilities, ylabels, returnAll = 0, mode = 0, 
+               targetMax = 0, targetValue = 0.2):
             
-            """ Finds the Optimal tau based on the F1 score
+            """ Finds the Optimal tau based on the F1 score or precision or
+                recall
                 Input: Probabilities of train data of being class 1,
                 ylabels of training data
                 
                 returnAll: 0 or 1 :Default 0, If 1 return a more complete
                 set of parameters except tau
-                
+                mode: 0 (maximize F1 score), 1 (maximize precision), 2
+                      (maximize) recall
+                targetMax: We included one more parameter if targetMax is 0
+                then our Target is precision  if our targetMax is 1 then the 
+                target is recall
+                targetValue:  maximize targetMax (precision or Recall) such that
+                the target value (recall , precision) is at least "targetValue"
                 """
             
             #STEP 1 SORT PROBABILITIES AND LABELS
@@ -129,7 +137,12 @@ def optimalTau(probabilities, ylabels, returnAll = 0, mode = 0):
             prob_F1 = [[threshold, f1]]
             prec = precision
             rec = recall
+            #list with f1, precision , recall
             metOld = [f1, precision, recall]
+            #precision recall list of lists
+            precRec = [precision, recall]
+            #tau that maximizes target with given targetvalue
+            tauTarget = -1
             
             for i, probability in enumerate( probabilities1 ):
                 
@@ -164,6 +177,20 @@ def optimalTau(probabilities, ylabels, returnAll = 0, mode = 0):
                 
                 prob_F1.append( [probability, metNew[mode]] )   #thresholds with F1 scores if you want to draw a graph
                 
+                if targetMax == 0: #maximize precision with given recall
+                    
+                    if recall >= targetValue:
+                        tauTarget = probability
+                        precRec.append([precision, recall])
+                
+                else:
+                    
+                    if precision >=  targetValue:
+                        tauTarget = probability
+                        precRec.append([precision, recall])
+                    
+                
+                #maximize  f1 precision or recall
                 if metNew[mode] >= metOld[mode] :
                     threshold = probability
                     f1 = f1new
@@ -171,10 +198,13 @@ def optimalTau(probabilities, ylabels, returnAll = 0, mode = 0):
                     rec = recall      #you can return  recall
                     metOld  = [f1, prec, rec]
                                         # these are mostly for correctness
-                                      #checking
+                                        #checking
+            
+            #OUTSIDE THE LOOP
             if returnAll == 1:
                 params = {'tau': threshold, 'curve': np.array(prob_F1), 
-                          'precision': prec, 'recall': rec}
+                          'precision': prec, 'recall': rec, \
+                          'precRec': precRec, 'tauTarget': tauTarget}
                 return params
             
             return threshold #, f1, np.array(prob_F1), prec, rec

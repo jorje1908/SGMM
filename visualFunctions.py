@@ -254,7 +254,9 @@ def calcTFIDF(  data = None, labels = None, n_clusters = None ):
        #this is needed  when  we have little data  
        idf[ np.where(idf == 0) ] = n_clusters  
        for i in np.arange( n_clusters ):
-           tfIdf[i] = np.ceil(tfIdf[i]  * np.log( n_clusters / ( idf ) ))
+           tfIdf[i] = np.ceil(tfIdf[i]  * 
+                        (np.log( n_clusters /  idf )/ np.log( n_clusters )))
+                                                     # /np.log( n_clusters ) ) )
                 
        print(max(idf), n_clusters)    
        return tfIdf   
