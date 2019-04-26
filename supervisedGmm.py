@@ -297,8 +297,8 @@ class SupervisedGMM():
                 #CROSS VALIDATION MAXIMIZING BE DEFAULT THE F1 SCORE
                 if adaR == 1:
                     Nclus = np.sum( mTrain, axis = 0)
-                    alpha = (np.array( alpha ) / Nclus).tolist()
-                    param_grid = {'alpha': alpha}
+                    alphanew = (np.array( alpha ) / Nclus).tolist()
+                    param_grid = {'alpha': alphanew}
                     
                 
                 sgd = SGDClassifier(loss = "log", penalty = penalty, 
