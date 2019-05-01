@@ -32,12 +32,12 @@ class SupervisedGMM():
     """
     
     
-    def __init__(self, max_iter = 5, cv = None, mix = 0.5, Cs = [1000], 
-                 alpha = [0.0001],
+    def __init__(self, max_iter = 30, cv = 5, mix = 0.5, Cs = [1000], 
+                 alpha = [ 0.001, 0.01, 0.1, 1, 10, 100, 1000, 10000 ],
                  max_iter2 = 10, penalty = 'l1', scoring = 'neg_log_loss',
                  solver = 'saga', n_clusters = 2, tol = 10**(-3 ) , 
-                 mcov = 'diag', tol2 = 10**(-3), transduction = 1, adaR = 1
-                 ):
+                 mcov = 'diag', tol2 = 10**(-3), transduction = 1, adaR = 1,
+                 verbose = 1):
         
         
         
@@ -58,7 +58,7 @@ class SupervisedGMM():
             transduction: If to use transductional logic or not: Default: 1(TR)
             adaR: Adaptive regularization , regularize according to the cluster
             size
-            
+            verbose: information on the fitting of the algorithm
             GMMS PARAMETERES:
             mix: In what Percentages to Upadate Memberships in respect with
             the previous iteration: Def --> 0.5
@@ -113,6 +113,8 @@ class SupervisedGMM():
         self._trans = transduction
         #use adaptive regularization of not
         self._adaR = adaR
+        #verbose or not
+        self._vb = verbose
         
         ######################################################################
         
@@ -249,6 +251,7 @@ class SupervisedGMM():
         mcov = self._mcov
         trans = self._trans
         adaR = self._adaR
+        vb = self._vb
         #regularize the sums  for numerical instabilities
         reg = 10**(-5)
         #regularization to be added to every memebership entry
@@ -272,7 +275,7 @@ class SupervisedGMM():
         sumTest = np.sum( mTest, axis = 1 )
         mTest = ( mTest.T / sumTest ).T    
         
-        #print(np.sum(mTrain, axis = 1), np.sum(mTest, axis = 1))
+       
         
         #SET SOME  PARAMETERES
         #FOR USE IN THE FOR LOOP
@@ -288,19 +291,29 @@ class SupervisedGMM():
         param_grid = {'alpha': alpha}
         for iter2 in np.arange( max_iter2 ):
             #FITING THE L1 LOGISTIC REGRESSIONS
-            models = [] #EVERY IETARTION CHANGE MODELS 
+            models = [] #EVERY ITEARTION CHANGE MODELS 
                         # IN ORDER TO TAKE THE MODELS OF LAST ITERATION
                         #OR THE MODELS BEFORE ERROR GO BELOW TOLERANCE
             for clust in np.arange( n_clusters ):
                                                                  
                 #FIT THE L1 LOGISTIC REGRESSION MODEL
                 #CROSS VALIDATION MAXIMIZING BE DEFAULT THE F1 SCORE
+                Nclus = np.sum( mTrain[:, clust], axis = 0 )
                 if adaR == 1:
-                    Nclus = np.sum( mTrain, axis = 0)
+                    
                     alphanew = (np.array( alpha ) / Nclus).tolist()
                     param_grid = {'alpha': alphanew}
-                    
                 
+                # PRINT SOME INFORMATION  
+                if vb == 1:
+                    #print Cluster Size
+                    print('\n Cluster {} has Size {} of {}'.format( clust,
+                          Nclus, mTrain.shape[0]))
+                    if adaR == 1:
+                        print('alpha is {} alphaNew {}'.format(alpha, alphanew))
+                    
+                    
+                #TRAIN LOGISTIC REGRESSION MODEL
                 sgd = SGDClassifier(loss = "log", penalty = penalty, 
                                       n_jobs = -1, max_iter = max_iter,
                                       random_state = 0, tol = tol2)
