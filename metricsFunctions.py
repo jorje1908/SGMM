@@ -283,6 +283,15 @@ def calc_metrics(model = None, cluster = -1, y = None, tau = 0.5,
                          accuracy, bal_acc, f1, auc]
              
              return metrics, roc
+def predict_y(probabilities, tau = 0.5):
+     """return the predictions given probabilities and thresholds """
+    
+     probabilities[ np.where( probabilities >= tau ) ] = 1
+     probabilities[ np.where( probabilities < tau ) ] = 0
+     predictions = probabilities
+     
+     return predictions
+    
          
             
 def metrics_cluster(models = None, ytrain = None, ytest = None,

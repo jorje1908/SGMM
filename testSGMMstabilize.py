@@ -31,7 +31,7 @@ np.random.seed( seed = 0)
 #READING DATA SETTING COLUMNS NAMES FOR METRICS
 file1 = '/home/george/github/sparx/data/sparcs00.h5'
 file2 = '/home/george/github/sparx/data/sparcs01.h5'
-data, dataS, idx = loader(15000, 300, file1, file2)
+data, dataS, idx = loader(10000, 300, file1, file2)
 
 
 cols = data.columns
@@ -53,9 +53,9 @@ Cs = [  10 ]
 alpha = [ 0.001, 0.01, 0.1, 1, 10, 100, 1000, 10000 ]
 #alpha = [1]
 n_clusters = 4
-cv = 5
+cv = 10
 scoring = 'neg_log_loss'
-mcov = 'full'
+mcov = 'diag'
 model = SupervisedGMM(  n_clusters = n_clusters, max_iter2 =10, tol = 10**(-6),
                          max_iter = 30, alpha = alpha, mcov = mcov, adaR = 0,
                          transduction = 1, verbose = 1, scoring = scoring,

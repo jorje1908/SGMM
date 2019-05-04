@@ -60,7 +60,8 @@ def neural_nets(Xtrain = None, ytrain = None, Xtest = None,
 
 def kmeansLogRegr( Xtrain = None, ytrain = None, Xtest = None,
                   ytest = None, Cs = [10], penalty = 'l1', 
-                  solver = 'saga', scoring = 'f1', n_clusters = 2):
+                  solver = 'saga', scoring = 'f1', n_clusters = 2,
+                  adaR = 1):
     
     #CLUSTER WITH KMEANS
     kmeans = KMeans(n_clusters = n_clusters, random_state = 0).\
@@ -77,6 +78,10 @@ def kmeansLogRegr( Xtrain = None, ytrain = None, Xtest = None,
     for i in np.arange( n_clusters ):
         indxTr = np.where(labelsTrain == i)[0]
         indxTest = np.where( labelsTest == i)[0]
+        
+        if adaR == 1:
+            Cs = np.array(Cs)/len(indxTr)
+        
         params, _, _ = logisticRegressionCv2(Xtrain = Xtrain[indxTr], 
                                        ytrain = ytrain[indxTr], 
                                        ytest = ytest[indxTest],
