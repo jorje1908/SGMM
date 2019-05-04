@@ -80,13 +80,13 @@ def kmeansLogRegr( Xtrain = None, ytrain = None, Xtest = None,
         indxTest = np.where( labelsTest == i)[0]
         
         if adaR == 1:
-            Cs = np.array(Cs)/len(indxTr)
+            Csnew = (np.array(Cs)/len(indxTr)).tolist()
         
         params, _, _ = logisticRegressionCv2(Xtrain = Xtrain[indxTr], 
                                        ytrain = ytrain[indxTr], 
                                        ytest = ytest[indxTest],
                                        Xtest = Xtest[indxTest], 
-                                       Cs = Cs, penalty = penalty,
+                                       Cs = Csnew, penalty = penalty,
                                        solver = solver, scoring = scoring)
         
         models.append( params['model'] ) 
