@@ -15,24 +15,26 @@ def warn(*args, **kwargs):
     pass
 import warnings
 warnings.warn = warn
-#import warnings
 warnings.filterwarnings("ignore", category=DeprecationWarning)
-import time
+
 from supervisedGmm import SupervisedGMM
-from metricsFunctions import calc_metrics, metrics_cluster, optimalTau
-from experFuncs import experiment1, transduction
 from loaders2 import loader
+from experFuncs import experiment1
+#from experFuncs import transduction
 #from mlModels import logisticRegressionCv2, neural_nets, randomforests,\
 #kmeansLogRegr
+#import time
+#from metricsFunctions import calc_metrics, metrics_cluster, optimalTau
+
 
 np.random.seed( seed = 0)
 
 
 
-
+#LOAD DATA
 file1 = '/home/george/github/sparx/data/sparcs00.h5'
 file2 = '/home/george/github/sparx/data/sparcs01.h5'
-data, dataS, idx = loader(10000, 300, file1, file2)
+data, dataS, idx = loader(2000, 300, file1, file2)
 
 
 cols = data.columns
@@ -49,31 +51,45 @@ columns = ['cluster', 'size', 'high_cost%','low_cost%',
                        'accuracy', 'balanced accuracy', 'f1', 'auc']
 ###############################################################################
 ##################### TESTING TRANSDACTION ####################################
-##Fitting SGMM
-Cs = [  10 ]
+##Setting SGMM Parameteres
+
 alpha = [ 0.001, 0.01, 0.1, 1, 10, 100, 1000, 10000 ]
-#alpha = [1]
 n_clusters = 4
 cv = 10
 scoring = 'neg_log_loss'
 mcov = 'diag'
 adaR = 1
-model = SupervisedGMM(  n_clusters = n_clusters, max_iter2 = 7, tol = 10**(-6),
+
+#INITIALIZING THE MODEL
+model = SupervisedGMM(  n_clusters = n_clusters, max_iter2 = 10, tol = 10**(-6),
                          max_iter = 100, alpha = alpha, mcov = mcov, adaR = adaR,
                          transduction = 1, verbose = 0, scoring = scoring,
                          cv = cv)
 
-Xtrain, Xtest, ytrain, ytest = model.split( data = data.values, split = 0.75)
+
+#SET AVERAGING AND TRANSDUCTION PARAMETERS AND DATASETS
+avg = 2
+trans = 2
+tr_sz = 0.25
+X = data.iloc[:,0:-1].values
+Y = data.iloc[:,-1].values
+
+myDict = experiment1(X, Y, model,
+                     averaging = avg, trans = trans, train_size = tr_sz)
 
 
-start = time.time()
-print("Starting TransDuction")
-resultsTest, resultsTrain = transduction(model, Xtrain, Xtest, ytrain, ytest, trans = 10, 
-                       )
+
+#Directory to Save the data"
+Directory = "Results/sparx/"
+np.save( Directory+"sparxSGMMD.npy", myDict)
+
+pdTest = pd.DataFrame(myDict['testF'], columns = columns)
+pdTrain = pd.DataFrame(myDict['trainF'], columns = columns)
+
+pdTest.to_csv(Directory+"testSpSGMM.csv", index = False, float_format = '%.3f')
+pdTrain.to_csv(Directory+"trainSpSGMM.csv", index = False, float_format = '%.3f')
 
 
-end =  time.time() - start
-print("End of Transduction, time elapsed: {}".format( end))
 
 
 

@@ -44,7 +44,8 @@ def neural_nets(Xtrain = None, ytrain = None, Xtest = None,
     
      sgd  =  MLPClassifier( hidden_layer_sizes = h_l_s, early_stopping = True,
                                                               random_state = 0)
-     param_grid = {'alpha' : [0.1,  0.01, 0.001, 1, 2, 5, 10, 12, 100]}
+     
+     param_grid = {'alpha' : [0.001,  0.01, 0.1 , 1, 10, 100, 1000, 10000] }
             
      model = GridSearchCV( sgd, param_grid = param_grid, 
                                    n_jobs = -1, 
@@ -107,8 +108,8 @@ def randomforests(Xtrain = None, ytrain = None, Xtest = None,
     
     "RANDOM FOREST CLASSIFIER"
     
-    param_grid = {'n_estimators' : [20,  40, 60, 80, 100, 120, 150,500,900,
-                                    1100] }
+    param_grid = {'n_estimators' : [10, 50, 100, 150, 200, 250, 300, 350,
+                                    400, 500, 700, 900] }
     forest  = RandomForestClassifier()
     
     model = GridSearchCV( forest, param_grid = param_grid, 
@@ -127,8 +128,8 @@ def randomforests(Xtrain = None, ytrain = None, Xtest = None,
 def xboost(Xtrain = None, ytrain = None, Xtest = None,
                           ytest = None, cv = 2, scoring = 'f1'):
     
-    param_grid = {'n_estimators' : [20,  40, 60, 80, 100, 120, 150, 700,
-                                    900, 1100] }
+    param_grid = {'n_estimators' : [10, 50, 100, 150, 200, 250, 300, 350,
+                                    400, 500, 700, 900]}
     ada = AdaBoostClassifier()
     
     model = GridSearchCV( ada, param_grid = param_grid, 
@@ -150,10 +151,10 @@ def gradboost(Xtrain = None, ytrain = None, Xtest = None,
     
     "RANDOM FOREST CLASSIFIER"
     
-    param_grid = {'n_estimators' : [20,  40, 60, 80, 100, 120, 150, 300, 500,
-                                    700, 800, 900]}
+    param_grid = {'n_estimators' : [10, 50, 100, 150, 200, 250, 300, 350,
+                                    400, 500, 700, 900]}
     grad  = GradientBoostingClassifier(subsample = 0.5, max_features = 'sqrt',
-                                       learning_rate = 0.01, max_depth = 3)
+                                       learning_rate = 0.01, max_depth = 5)
     
     model = GridSearchCV( grad, param_grid = param_grid, 
                                   n_jobs = -1, 

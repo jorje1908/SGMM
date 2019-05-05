@@ -282,7 +282,7 @@ def calc_metrics(model = None, cluster = -1, y = None, tau = 0.5,
                          FPR, specificity, sensitivity, precision, 
                          accuracy, bal_acc, f1, auc]
              
-             return metrics, roc
+             return np.array(metrics), roc
 def predict_y(probabilities, tau = 0.5):
      """return the predictions given probabilities and thresholds """
     
