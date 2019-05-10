@@ -6,6 +6,11 @@ Created on Fri May  3 14:57:47 2019
 @author: george
 """
 
+
+import sys
+
+sys.path.append('..')
+
 import numpy as np
 import pandas as pd
 
@@ -34,7 +39,7 @@ np.random.seed( seed = 0)
 #LOAD DATA
 file1 = '/home/george/github/sparx/data/sparcs00.h5'
 file2 = '/home/george/github/sparx/data/sparcs01.h5'
-data, dataS, idx = loader(2000, 300, file1, file2)
+data, dataS, idx = loader(100, 100, file1, file2)
 
 
 cols = data.columns
@@ -61,15 +66,21 @@ mcov = 'diag'
 adaR = 1
 
 #INITIALIZING THE MODEL
-model = SupervisedGMM(  n_clusters = n_clusters, max_iter2 = 10, tol = 10**(-6),
-                         max_iter = 100, alpha = alpha, mcov = mcov, adaR = adaR,
+model = SupervisedGMM(  n_clusters = n_clusters, max_iter2 = 7, tol = 10**(-2),
+                         max_iter = 1000, alpha = alpha, mcov = mcov, adaR = adaR,
                          transduction = 1, verbose = 0, scoring = scoring,
-                         cv = cv)
+                         cv = cv, warm = 0, tol2 = 10**(-2))
 
 
 #SET AVERAGING AND TRANSDUCTION PARAMETERS AND DATASETS
-avg = 2
-trans = 2
+data = pd.read_csv('data/newborn/NewBornSparx.csv')
+
+#data = data.iloc[0:3000,:]
+
+
+
+avg = 10
+trans = 10
 tr_sz = 0.25
 X = data.iloc[:,0:-1].values
 Y = data.iloc[:,-1].values

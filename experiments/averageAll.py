@@ -6,9 +6,11 @@ Created on Sat May  4 20:47:42 2019
 @author: george
 """
 
+import sys
 import numpy as np
 import pandas as pd
-
+sys.path.append('..')
+print( sys.path )
 
 
 def warn(*args, **kwargs):
@@ -24,7 +26,7 @@ from experFuncs import AllAvg
 
 #SCRIPT THAT RUNS ALL THE ML MODELS AVERAGING THEM 
 
-
+print( sys.path.append('..'))
 
 np.random.seed( seed = 0 )
 ###############################################################################
@@ -52,8 +54,8 @@ Y = data.iloc[:,-1].values
 resTr, resTest, index100 = AllAvg( X, Y, train_size = tr_sz, averaging  = avg )
 
 Directory = "Results/sparx/"
-resTr.to_csv(Directory + "resTrSpall.csv", index = False, float_format = '%.3f')
-resTest.to_csv(Directory + "resTestSpall.csv", index = False, float_format = '%.3f')
+resTr.to_csv(Directory + "resTrSpall.csv", float_format = '%.3f')
+resTest.to_csv(Directory + "resTestSpall.csv",  float_format = '%.3f')
 
 
 

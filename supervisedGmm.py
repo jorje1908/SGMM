@@ -20,6 +20,7 @@ from sklearn.model_selection import train_test_split
 from sklearn.linear_model import  SGDClassifier
 from sklearn.model_selection import GridSearchCV
 from  scipy.stats import multivariate_normal
+from sklearn.cluster import KMeans
 #from sklearn.linear_model import LogisticRegressionCV
 
 ####THIS CODE HAS NUMERICAL ISSUES AT THE SPARCS DATASET
@@ -37,7 +38,7 @@ class SupervisedGMM():
                  max_iter2 = 10, penalty = 'l1', scoring = 'neg_log_loss',
                  solver = 'saga', n_clusters = 2, tol = 10**(-3 ) , 
                  mcov = 'diag', tol2 = 10**(-3), transduction = 1, adaR = 1,
-                 verbose = 1):
+                 verbose = 1, warm = 0):
         
         
         
@@ -64,8 +65,10 @@ class SupervisedGMM():
             the previous iteration: Def --> 0.5
             max_iter2: Maximum # of EM Iterations, DEF: 10 
             n_clusters: #of Soft Clusters: DEF: 2
-            cov = 'full' or 'diag', 'full' means full covariance,
+            mcov = 'full' or 'diag', 'full' means full covariance,
                    'diag' means diagonal covariance
+            verbose: if we want elements of the clusters be printed
+            warm: warm start, given memberships
            
             
                 
@@ -115,6 +118,11 @@ class SupervisedGMM():
         self._adaR = adaR
         #verbose or not
         self._vb = verbose
+        #warm : warm start or not
+        self._warm = warm
+        
+        #FOR FIT INITIALIZE WITH KMEANS THE MEMBERSHIPS
+        self._KMeans = None
         
         ######################################################################
         
@@ -193,23 +201,26 @@ class SupervisedGMM():
        # if (data and X and y ) is None:
           #  return "Input data or X and y "
         
-        if (X and y) is None:
+        if (X is None) and (y is None):
             Xtrain, Xtest, ytrain, ytest , idx1, idx2  = \
                                 train_test_split(data[:,:-1], data[:,-1], 
                                  np.arange( data.shape[0] ), 
-                                 test_size = split, random_state = 1512)
+                                 test_size = split, random_state = 1512,
+                                 stratify = y)
         else:
             Xtrain, Xtest, ytrain, ytest, idx1, idx2 = \
                                 train_test_split(X, y, 
                                  np.arange( X.shape[0] ), 
-                                 test_size = split, random_state = 1512)
+                                 test_size = split, random_state = 1512,
+                                 stratify = y)
         self.idx1 = idx1
         self.idx2 = idx2
         
         return Xtrain, Xtest, ytrain.astype(int), ytest.astype(int)
         
     def fit(self, Xtrain = None, ytrain = None, Xtest = None, ind1 = None,
-                                                              ind2 = None):
+                    ind2 = None, mTrain1 = None, mTest1 = None, 
+                    kmeans = 0):
         """ 
             Fit the Supervised Mixtures of Gaussian Model
             ind1: chose the features to use in the training of the Ml model
@@ -219,7 +230,7 @@ class SupervisedGMM():
         self.ind1 = ind1
         self.ind2 = ind2
         self.fitted = 1
-        
+        self._KMeans = kmeans
         if Xtrain is None or ytrain is None or Xtest is None :
             print(" Please Give Xtrain, ytrain, Xtest  data ")
             return
@@ -252,6 +263,7 @@ class SupervisedGMM():
         trans = self._trans
         adaR = self._adaR
         vb = self._vb
+        warm = self._warm
         #regularize the sums  for numerical instabilities
         reg = 10**(-5)
         #regularization to be added to every memebership entry
@@ -264,8 +276,34 @@ class SupervisedGMM():
         #WE KEEP SEPARATED TRAIN AND TEST MEMBERSHIPS
         #BECAUSE TRAIN IS SUPERVISED MEMBERSHIP
         #TEST IS UNSUPERVISED
-        mTrain = np.random.rand( dimXtrain, n_clusters) + regk
-        mTest = np.random.rand( dimXtest, n_clusters )  + regk
+        
+        if warm == 0:
+            #KMEANS INITIALIZATION
+            if kmeans == 0:
+               mTrain = np.random.rand( dimXtrain, n_clusters) + regk
+               mTest = np.random.rand( dimXtest, n_clusters )  + regk
+            
+            else:
+                km = KMeans( n_clusters = n_clusters, random_state = 0)
+                km = km.fit( np.concatenate( (Xtrain, Xtest), axis = 0))
+                mAll = np.zeros([ dimXtrain +dimXtest, n_clusters])
+                labels = km.labels_
+                
+                for j in np.arange( labels.shape[0]) :
+                    mAll[j, labels[j]] = 1
+                    
+                mTrain = mAll[0: dimXtrain ]
+                mTest = mAll[ dimXtrain :]
+                
+        
+        else:
+            tr = mTrain1.shape[0]
+            ts = mTest1.shape[0]
+            mTrain = np.random.rand( dimXtrain, n_clusters) + regk
+            mTest = np.random.rand( dimXtest, n_clusters )  + regk
+            
+            mTrain[ 0:tr, :] = mTrain1
+            mTest[ 0: ts, :] = mTest1
 
 
         #NORMALIZE MEMBERSHIPS SO EACH ROW SUMS TO 1

@@ -6,6 +6,11 @@ Created on Fri May  3 12:12:34 2019
 @author: george
  
 """
+
+import sys
+
+sys.path.append('..')
+
 import numpy as np
 import pandas as pd
 
@@ -18,18 +23,30 @@ warnings.warn = warn
 warnings.filterwarnings("ignore", category=DeprecationWarning)
 
 from  sklearn.model_selection import train_test_split
-from supervisedGmm import SupervisedGMM
+#from supervisedGmm import SupervisedGMM
 from metricsFunctions import calc_metrics, metrics_cluster, optimalTau, predict_y
 #from superGmmMother import superGmmMother
-from loaders2 import loader
+#from loaders2 import loader
 from mlModels import logisticRegressionCv2, neural_nets, randomforests,\
 kmeansLogRegr, xboost, gradboost
 import time
 
 
-def experiment1( X, Y, model, averaging = 10, train_size = 0.25, trans = 10 ):
+def experiment1( X, Y, model, averaging = 10, train_size = 0.25, trans = 10,
+                warm_it = 6, kmeans = 1, warm = 0):
     
-    """Transduction and averaging experiment """
+    """Transduction and averaging experiment 
+    
+    X: data
+    Y: labels
+    model: model to use (SGMM)
+    averaging: how many times to average our results
+    train_size: how much data to use for train (test size is 1-train_size)
+    trans = transduction iterations (10 means 10 splits on the test data)
+    warm_it: if a warm_start is specified , how many itertions to do 
+    kmeans: if to use kmeans algorithm for initial membershisps
+    warm: if to use warmm start of not
+    """
     
     np.random.seed( seed = 0)
     
@@ -54,9 +71,15 @@ def experiment1( X, Y, model, averaging = 10, train_size = 0.25, trans = 10 ):
         
         #STUDY TRANSDACTION 
         #for each of the transdactional splits we need the results
+        
+        model._warm = 0
+        model._max_iter2 = 10
+        
         _, _,npTest, npTrain = transduction(model, Xtrain, Xtest,
                                                      ytrain, ytest,
-                                                     trans = trans )
+                                                     trans = trans, warm = warm,
+                                                     warm_it = warm_it, 
+                                                     kmeans = kmeans)
         totResTrain.append( npTrain )
         totResTest.append( npTest )
         print("################ END OF ITERATION ###########################")
@@ -69,7 +92,7 @@ def experiment1( X, Y, model, averaging = 10, train_size = 0.25, trans = 10 ):
 
     for avg in np.arange(1, averaging):
         testFinal += totResTest[avg]
-        trainFinal += trainFinal[avg]
+        trainFinal += totResTrain[avg]
       
     testFinal = testFinal/averaging
     trainFinal = trainFinal/averaging
@@ -81,7 +104,8 @@ def experiment1( X, Y, model, averaging = 10, train_size = 0.25, trans = 10 ):
         
         
         
-def transduction(model,  Xtrain, Xtest, ytrain, ytest, trans = 10):
+def transduction(model,  Xtrain, Xtest, ytrain, ytest, trans = 10, warm_it = 2,
+                                                        warm = 0, kmeans = 1):
     """
     FUNCTION PERFORMING THE TRANSDACTION EXPERIMENT 
     
@@ -89,16 +113,27 @@ def transduction(model,  Xtrain, Xtest, ytrain, ytest, trans = 10):
     
     testSize = Xtest.shape[0]
     indexTest = np.arange( testSize )
+    #LISTS OF THE RESULTS
     resultsTest = []
     resultsTrain = []
-    for k in np.arange( trans ): #FOR EACH OF THE TRANSDACTION SPLITS
+   
+    for k in np.arange( trans ): #FOR EACH OF THE TRANSDUCTION SPLITS
                 
         # set batch size 
-        batch_size = int(testSize/( k + 1 ))
+        batch_size = int( testSize/( k + 1 ) )
+        #initialize a matrix for the predictions on test
         predictionsT = np.zeros( testSize )
+        #initialize the memberships to 0
+        mTest = 0
+        mTrain = 0
+        #set for the first iteration warm start to 0 and max iterations to 10
+        model._warm = 0
+        model._max_iter2 = 10
                 
         for l in np.arange( k + 1 ):  #FOR EACH OF THE BATCHES
+            #bginning index of the batch
             begin = l*batch_size
+            #end index of the batch
             end = l*batch_size + batch_size
             
             print("Transdaction Iteration {}, batch: {}".format(k,
@@ -106,24 +141,39 @@ def transduction(model,  Xtrain, Xtest, ytrain, ytest, trans = 10):
             
             print("Total Test Size: {}, begin: {}, end: {}".format(
                                                         testSize, begin, end))
+          
+            if l > 0: #if we are after the first batch, decide if we want
+                      #warm start or not and set the ietrations
+                model._warm = warm
+                model._max_iter2 = warm_it
                     
-            if l == k:
+            if l == k: #if we are at the last batch
                 model = model.fit( Xtrain = Xtrain,
-                                      Xtest = Xtest[ begin:],
-                                      ytrain = ytrain)
+                                      Xtest = Xtest[ begin: ],
+                                      ytrain = ytrain, mTrain1 = mTrain,
+                                      mTest1 = mTest, kmeans = kmeans)
+                #index of test data used
                 ind = indexTest[begin:]
                         
             else:
                 model = model.fit( Xtrain = Xtrain,
                                       Xtest = Xtest[ begin:end ],
-                                      ytrain = ytrain)
+                                      ytrain = ytrain,
+                                      mTrain1 = mTrain, mTest1 = mTest, 
+                                      kmeans = kmeans)
+                
+                #take the memeberships in case we want to use them in a warm 
+                #start
+                mTest = model.mTest
+                mTrain = model.mTrain
+                #index of the test data used
                 ind = indexTest[begin:end]
                     
-                #TAKE THE PROBABILITIES OF TRAIN AND TEST
+            #TAKE THE PROBABILITIES OF TRAIN AND TEST
             probTest, probTrain =  model.predict_prob_int(
                                                     Xtest = Xtest[ind],
                                                       Xtrain = Xtrain )
-            #take the optimal tau
+            #take the optimal tau on training data
             tau = optimalTau(probTrain, ytrain)
                     
             #take the batch prediction  for test batch
@@ -141,6 +191,8 @@ def transduction(model,  Xtrain, Xtest, ytrain, ytest, trans = 10):
                 
         resultsTest.append(metricsTest) 
         resultsTrain.append(metricsTrain)    
+        
+        
         
     return resultsTest, resultsTrain, np.array(resultsTest), np.array(resultsTrain)
 

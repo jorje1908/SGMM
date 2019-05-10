@@ -6,6 +6,11 @@ Created on Sat May  4 14:03:47 2019
 @author: george
 """
 
+
+import sys
+
+sys.path.append('..')
+
 import numpy as np
 import pandas as pd
 
