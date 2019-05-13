@@ -97,26 +97,28 @@ X = np.concatenate((ones, X), axis = 1)
 ##Fitting SGMM
 adaR = 1
 alpha = [ 0.00001, 0.0001, 0.001, 0.01, 0.1, 1, 10, 100, 1000 ]
-#alpha = [0.00001]
-#alpha = [1]
 n_clusters = 4
 vrb = 0
 cv = 10
-warm = 0
 scoring = 'neg_log_loss'
 mcov = 'diag'
 mx_it = 1000
 mx_it2 = 10
-km = 1
+warm = 0
 model = SupervisedGMM(  n_clusters = n_clusters, max_iter2 = mx_it2, tol = 10**(-3),
                          max_iter = mx_it, alpha = alpha, mcov = mcov, adaR = adaR,
                          transduction = 1, verbose = vrb, scoring = scoring,
                          cv = cv, warm = warm, tol2 = 10**(-2) )
 
 #SPLIT THE DATA
-trans = 14
+trans = 40
+avg = 10
+wit = 7
+ts = 0.3
+km = 1
 #Xtrain, Xtest, ytrain, ytest = model.split( X = X, y = Y, split = 0.25)
-gausDict = experiment1(X, Y.astype( int ), model, trans = trans)
+gausDict = experiment1(X, Y.astype( int ), model, trans = trans, averaging = avg,
+                       warm = warm, warm_it = wit, kmeans = km, train_size = ts)
 
 #FIT THE MODEL 
 #start = time.time()
