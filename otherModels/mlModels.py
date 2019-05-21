@@ -6,6 +6,17 @@ Created on Sun Mar 31 21:42:33 2019
 @author: george
 """
 
+import sys
+
+sys.path.append('..')
+sys.path.append('../SGMM')
+sys.path.append('../metrics')
+sys.path.append('../loaders')
+sys.path.append('../oldCode')
+sys.path.append('../visual')
+sys.path.append('../testingCodes')
+#sys.path.append('../otherModels')
+
 import numpy as np
 from sklearn.linear_model import LogisticRegressionCV
 from sklearn.model_selection import GridSearchCV

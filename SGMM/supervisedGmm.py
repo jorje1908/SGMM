@@ -6,7 +6,16 @@ Created on Mon Mar 18 19:14:37 2019
 @author: george
 """
 
+import sys 
 
+sys.path.append('..')
+#sys.path.append('../SGMM')
+sys.path.append('../metrics')
+sys.path.append('../loaders')
+sys.path.append('../oldCode')
+sys.path.append('../visual')
+sys.path.append('../testingCodes')
+sys.path.append('../otherModels')
 
 
 def warn(*args, **kwargs):
@@ -205,13 +214,13 @@ class SupervisedGMM():
             Xtrain, Xtest, ytrain, ytest , idx1, idx2  = \
                                 train_test_split(data[:,:-1], data[:,-1], 
                                  np.arange( data.shape[0] ), 
-                                 test_size = split, random_state = 1512,
+                                 test_size = split, random_state = 0,
                                  stratify = y)
         else:
             Xtrain, Xtest, ytrain, ytest, idx1, idx2 = \
                                 train_test_split(X, y, 
                                  np.arange( X.shape[0] ), 
-                                 test_size = split, random_state = 1512,
+                                 test_size = split, random_state = 0,
                                  stratify = y)
         self.idx1 = idx1
         self.idx2 = idx2
@@ -220,7 +229,7 @@ class SupervisedGMM():
         
     def fit(self, Xtrain = None, ytrain = None, Xtest = None, ind1 = None,
                     ind2 = None, mTrain1 = None, mTest1 = None, 
-                    kmeans = 0):
+                    kmeans = 0, mod = 0):
         """ 
             Fit the Supervised Mixtures of Gaussian Model
             ind1: chose the features to use in the training of the Ml model
@@ -231,6 +240,7 @@ class SupervisedGMM():
         self.ind2 = ind2
         self.fitted = 1
         self._KMeans = kmeans
+        
         if Xtrain is None or ytrain is None or Xtest is None :
             print(" Please Give Xtrain, ytrain, Xtest  data ")
             return
@@ -407,11 +417,34 @@ class SupervisedGMM():
                 
             gmmProb = params['probMat']
             
+            #THIS IS AFTER MODIFICATIONS#######################################
+            if mod == 1:
+                gmmProb = params['probMat2']
+            #END OF MODIFICATION ##############################################
+            ###################################################################
+            
             #CALCULATE NEW MEMBERSHIPS FOR TRAIN AND TEST
             mNewTrain = logiProb * gmmProb[0: dimXtrain, :] +regk
+            
+            
+            
             if trans == 1:
                 mNewTest = gmmProb[dimXtrain :, :] + regk
+             
+            #THIS IS AFTER MODIFICATIONS#######################################    
+            if mod == 1 and vb == 1:
+                #lcTr = np.sum(mTrain*np.log(mNewTrain +regk))/dimXtrain
+                lcTr = np.sum(np.log(mNewTrain - regk+10**(-10)))/dimXtrain
+                if trans == 1:
+                    #lcTst = np.sum(mTest*np.log(mNewTest + regk))
+                    lcTst = np.sum(np.log(mNewTest - regk +10**(-10) ))
+                    lcTr = (lcTr*dimXtrain + lcTst)/(dimXtest+ dimXtrain)
                 
+                print("Qnew is : {}".format( lcTr ))
+            #END OF MODIFICATION ##############################################
+            ###################################################################
+            
+            
             #NORMALIZE NEWMEMBERSHIPS
             sumTrain = np.sum( mNewTrain, axis = 1)
             if trans == 1:
@@ -711,14 +744,25 @@ class SupervisedGMM():
             #for each data point
             maxLog = np.max(logprobaMatrix, axis = 1)
             #regularization  of the log likelihood matrix
+#            print("1 LogProbaMatrix Sum: {:.3f}".format( 
+#                    np.sum( logprobaMatrix )))
             logprobaMatrix = ( logprobaMatrix.T - maxLog).T
+#            print("2 LogProbaMatrix Sum: {:.3f}".format( 
+#                    np.sum( logprobaMatrix )))
+            
+            #### NEXT 4 LINES BEFORE
             probMat = np.exp( logprobaMatrix ) + regk
             sumRel = np.sum( probMat, axis = 1)
             probMat = (probMat.T / sumRel).T
             probMat = probMat*np.array(pis)
             
+            #after modification
+            #maxProb = np.exp( maxLog )
+            #probMat2 = ((np.exp( logprobaMatrix )*np.array(pis)).T*maxProb).T
+            probMat2 = np.exp( logprobaMatrix )*np.array(pis)
+            
             params = {'cov':cov, 'means': means, 'pis' : pis, 
-                          'probMat':probMat, 'Gmms': Gmms}
+                          'probMat':probMat, 'Gmms': Gmms, 'probMat2': probMat2}
             
             return params
         
@@ -817,6 +861,11 @@ class SupervisedGMM():
         #print(np.min(eige))
         model  = multivariate_normal(meank, covk)
         logproba = model.logpdf(X) 
+#        print(logproba)
+#        print(meank)
+#        print(covk)
+#        return
+      #  print(" INSIDE logProba:{:.03f}".format(np.sum(logproba)))
         
         
        # print("min log prob {}, max of log prob {}".format( np.min(proba ),

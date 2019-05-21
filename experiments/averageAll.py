@@ -10,6 +10,13 @@ import sys
 import numpy as np
 import pandas as pd
 sys.path.append('..')
+sys.path.append('../SGMM')
+sys.path.append('../metrics')
+sys.path.append('../loaders')
+sys.path.append('../oldCode')
+sys.path.append('../visual')
+sys.path.append('../testingCodes')
+sys.path.append('../otherModels')
 print( sys.path )
 
 

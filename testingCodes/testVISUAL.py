@@ -1,10 +1,20 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Created on Sun Apr 14 12:29:52 2019
+Created on Tue Apr  9 14:13:52 2019
 
 @author: george
 """
+import sys
+
+sys.path.append('..')
+sys.path.append('../SGMM')
+sys.path.append('../metrics')
+sys.path.append('../loaders')
+sys.path.append('../oldCode')
+#sys.path.append('../visual')
+sys.path.append('../testingCodes')
+sys.path.append('../otherModels')
 
 import numpy as np
 import pandas as pd
@@ -52,7 +62,7 @@ columns = ['cluster', 'size', 'high_cost%','low_cost%',
 ##Fitting SGMM
 Cs = [  10 ]
 alpha = [0.1, 0.0001, 2, 0.001]
-model = SupervisedGMM( Cs = Cs, n_clusters = 2, max_iter2 = 5, tol = 10**(-6),
+model = SupervisedGMM( Cs = Cs, n_clusters = 5, max_iter2 = 5, tol = 10**(-6),
                                                               max_iter = 5,
                                                               alpha = alpha,
                                                               mcov = 'diag')
@@ -71,9 +81,7 @@ labTrain, labTest = fitP['labTrain'], fitP['labTest']
 
 
 probTest, probTrain = model.predict_prob_int( Xtest = Xtest, Xtrain = Xtrain )
-metricstau = optimalTau(probTrain, ytrain, returnAll = 1, targetValue = 1)
-tau  =  metricstau['tau']
-tau = metricstau['tauTarget']
+tau = optimalTau(probTrain, ytrain)
 metTest,_ = calc_metrics(custom_prob = probTest.copy(), tau = tau, y = ytest)
 metTrain ,_= calc_metrics(custom_prob = probTrain.copy(), tau = tau, y = ytrain)
 
@@ -86,3 +94,22 @@ metCTrainSGMM, metCTestSGMM = metrics_cluster(models = logisRegre,
 #TOTAL METRICS OF SGMM (PANDA MATRICES)
 metTestSGMM = pd.DataFrame( [metTest], columns = columns)
 metTrainSGMM = pd.DataFrame( [metTrain], columns = columns)
+
+##############################################################################
+#TEST VISUALIZATIONS
+w = model.weights
+means = model.means
+mixes = model.mixes
+cova = model.cov
+
+dictsClouds = CreateClouds(data = Xtrain, labels = labTrain, names = colss,
+                           n_clusters = 5, dirCreate = 0, TFIDF = 1)
+
+#dictsWeights = CreateCloudsWeights( weights = w, names = colss, n_clusters = 2,
+                                  #dirCreate = 1)
+indx = np.arange(1, 5, 1).tolist()
+d = plot_parallel(w, colss[:-1], indx, scale = 0)
+heatmap( w, colss[:-1], indx)
+
+
+

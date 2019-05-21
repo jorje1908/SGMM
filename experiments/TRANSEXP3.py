@@ -127,7 +127,7 @@ X = np.concatenate((ones, X), axis = 1)
 Y = data[:, 2]    
 
 
-X = np.concatenate((ones, X), axis = 1) 
+#X = np.concatenate((ones, X), axis = 1) 
 ##Fitting SGMM
 adaR = 1
 alpha = [ 0.00001, 0.0001, 0.001, 0.01, 0.1, 1, 10, 100, 1000 ]

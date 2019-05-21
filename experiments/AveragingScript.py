@@ -10,7 +10,13 @@ Created on Sat May  4 14:03:47 2019
 import sys
 
 sys.path.append('..')
-
+sys.path.append('../SGMM')
+sys.path.append('../metrics')
+sys.path.append('../loaders')
+sys.path.append('../oldCode')
+sys.path.append('../visual')
+sys.path.append('../testingCodes')
+sys.path.append('../otherModels')
 import numpy as np
 import pandas as pd
 

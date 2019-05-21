@@ -1,13 +1,14 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Created on Tue Apr  9 14:13:52 2019
+Created on Sat Apr  6 22:10:04 2019
 
 @author: george
 """
 
 import numpy as np
 import pandas as pd
+
 
 
 def warn(*args, **kwargs):
@@ -21,12 +22,8 @@ from supervisedGmm import SupervisedGMM
 from metricsFunctions import calc_metrics, metrics_cluster, optimalTau
 #from superGmmMother import superGmmMother
 from loaders2 import loader
-from mlModels import logisticRegressionCv2, neural_nets, randomforests,\
-kmeansLogRegr
-
-from visualFunctions import CreateClouds, CreateCloudsWeights, plot_parallel,\
-findbinary, heatmap
-
+#from mlModels import logisticRegressionCv2, neural_nets, randomforests,\
+#kmeansLogRegr
 
 np.random.seed( seed = 0)
 ###############################################################################
@@ -34,15 +31,17 @@ np.random.seed( seed = 0)
 #READING DATA SETTING COLUMNS NAMES FOR METRICS
 file1 = '/home/george/github/sparx/data/sparcs00.h5'
 file2 = '/home/george/github/sparx/data/sparcs01.h5'
-data, dataS, idx = loader(5000, 300, file1, file2)
+data, dataS, idx = loader(4000, 300, file1, file2)
 
 
 cols = data.columns
+#drop drgs and length of stay
 colA = cols[761:1100]
 colB = cols[0]
 data = data.drop(colA, axis = 1)
 data = data.drop(colB, axis = 1)
 colss = data.columns.tolist()
+
 columns = ['cluster', 'size', 'high_cost%','low_cost%', 
                        'TP', 'TN', 'FP', 'FN', 
                        'FPR', 'specificity', 'sensitivity', 'precision',
@@ -51,27 +50,45 @@ columns = ['cluster', 'size', 'high_cost%','low_cost%',
 
 ##Fitting SGMM
 Cs = [  10 ]
-alpha = [0.1, 0.0001, 2, 0.001]
-model = SupervisedGMM( Cs = Cs, n_clusters = 5, max_iter2 = 5, tol = 10**(-6),
-                                                              max_iter = 5,
-                                                              alpha = alpha,
-                                                              mcov = 'diag')
+alpha = [ 0.001, 0.01, 0.1, 1, 10, 100, 1000, 10000 ]
+#alpha = [1]
+n_clusters = 4
+cv = 10
+scoring = 'neg_log_loss'
+mcov = 'diag'
+mx_it2 = 10
+mx_it = 1000
+warm = 0
+vrb = 0
+adaR = 1
+km = 1
+model = SupervisedGMM(  n_clusters = n_clusters, max_iter2 = mx_it2, tol = 10**(-3),
+                         max_iter = mx_it, alpha = alpha, mcov = mcov, adaR = adaR,
+                         transduction = 1, verbose = vrb, scoring = scoring,
+                         cv = cv, warm = warm, tol2 = 10**(-2) )
 
+#SPLIT THE DATA
 Xtrain, Xtest, ytrain, ytest = model.split( data = data.values)
+
+#FIT THE MODEL 
 start = time.time()
-model = model.fit( Xtrain = Xtrain, Xtest = Xtest, ytrain = ytrain)
+model = model.fit( Xtrain = Xtrain, Xtest = Xtest, ytrain = ytrain,
+                  mod = 1, kmeans = 1)
 end = time.time() - start
 print( " Algorith run in {}s".format( end ))
 
-
+#GET THE MEMBERSHIPS, LOGISTIC REGRESSION FIT PARAMETERS
 mTest, mTrain = model.mTest, model.mTrain
 logisRegre = model.LogRegr
 fitP = model.fitParams
 labTrain, labTest = fitP['labTrain'], fitP['labTest']
 
 
+#PREDICT THE INTERNAL PROBABILITIES 
 probTest, probTrain = model.predict_prob_int( Xtest = Xtest, Xtrain = Xtrain )
+#CALCULATE THE OPTIMAL TAU
 tau = optimalTau(probTrain, ytrain)
+#tau = 0.5
 metTest,_ = calc_metrics(custom_prob = probTest.copy(), tau = tau, y = ytest)
 metTrain ,_= calc_metrics(custom_prob = probTrain.copy(), tau = tau, y = ytrain)
 
@@ -85,21 +102,4 @@ metCTrainSGMM, metCTestSGMM = metrics_cluster(models = logisRegre,
 metTestSGMM = pd.DataFrame( [metTest], columns = columns)
 metTrainSGMM = pd.DataFrame( [metTrain], columns = columns)
 
-##############################################################################
-#TEST VISUALIZATIONS
-w = model.weights
-means = model.means
-mixes = model.mixes
-cova = model.cov
-
-dictsClouds = CreateClouds(data = Xtrain, labels = labTrain, names = colss,
-                           n_clusters = 5, dirCreate = 0, TFIDF = 1)
-
-#dictsWeights = CreateCloudsWeights( weights = w, names = colss, n_clusters = 2,
-                                  #dirCreate = 1)
-indx = np.arange(1, 5, 1).tolist()
-d = plot_parallel(w, colss[:-1], indx, scale = 0)
-heatmap( w, colss[:-1], indx)
-
-
-
+###############################################################################

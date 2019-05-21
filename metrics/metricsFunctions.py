@@ -5,6 +5,18 @@ Created on Tue Mar 19 22:36:54 2019
 
 @author: george
 """
+
+import sys
+
+sys.path.append('..')
+sys.path.append('../SGMM')
+#sys.path.append('../metrics')
+sys.path.append('../loaders')
+sys.path.append('../oldCode')
+sys.path.append('../visual')
+sys.path.append('../testingCodes')
+sys.path.append('../otherModels')
+
 import numpy as np
 import pandas as pd
 #from wordcloud import WordCloud, STOPWORDS, ImageColorGenerator
@@ -174,8 +186,9 @@ def optimalTau(probabilities, ylabels, returnAll = 0, mode = 0,
                     
                     f1new = ( 2*precision*recall )/( precision + recall )  
                     metNew = [f1new, precision, recall]
-                
-                prob_F1.append( [probability, metNew[mode]] )   #thresholds with F1 scores if you want to draw a graph
+                    
+                #thresholds with F1 scores if you want to draw a graph
+                prob_F1.append( [probability, metNew[mode]] )  
                 
                 if targetMax == 0: #maximize precision with given recall
                     
@@ -364,14 +377,64 @@ def metrics_cluster(models = None, ytrain = None, ytest = None,
                     
                    
                    
-                   
-            
-                    
-                        
-                    
                     
             #Create a dataframe with metrics for better Visualization         
             metricsTrain = pd.DataFrame ( metricsTrain, columns = columns )
             metricsTest = pd.DataFrame( metricsTest, columns = columns ) 
                 
             return metricsTrain, metricsTest
+        
+def sgmmResults( model, probTest, probTrain, ytest, ytrain ):
+    #a Summary of predictions and interesting model parameters
+    
+    #means
+    means = model.means
+    #covariances
+    cov = model.cov
+    #weights
+    weights = model.weights
+    #logistic regressions
+    logRegr = model.LogRegr
+    #train memberships
+    mTest = model.mTest
+    #test memberships
+    mTrain = model.mTrain
+    
+    best_alphas = []
+    
+    for logR in logRegr:
+        best_alphas.append( logR.best_params_)
+        
+    #CALCULATE THE OPTIMAL TAU
+    tau = optimalTau(probTrain, ytrain)
+    
+    metTest,_ = calc_metrics(custom_prob = probTest.copy(), tau = tau, 
+                                                                     y = ytest)
+    metTrain ,_= calc_metrics(custom_prob = probTrain.copy(), tau = tau,
+                                                                     y = ytrain)
+    
+    predictTrain = predict_y( probTrain, tau )
+    predictTest = predict_y( probTest, tau )
+    
+    columns = ['cluster', 'size', 'high_cost%','low_cost%', 
+                       'TP', 'TN', 'FP', 'FN', 
+                       'FPR', 'specificity', 'sensitivity', 'precision',
+                       'accuracy', 'balanced accuracy', 'f1', 'auc']
+
+    metTestSGMM = pd.DataFrame( [metTest], columns = columns)
+    metTrainSGMM = pd.DataFrame( [metTrain], columns = columns)
+    
+    results = {"testMet": metTestSGMM, "trainMet": metTrainSGMM,
+               "yTest": predictTest, "yTrain": predictTrain, "memberTr":
+                   mTrain, "memberTest": mTest, "means": means, "weights":
+                       weights, "cov": cov, "tau": tau, "best_alphas":
+                           best_alphas}
+        
+    return results
+    
+    
+    
+    
+        
+        
+        

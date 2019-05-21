@@ -10,6 +10,14 @@ Created on Fri May  3 12:12:34 2019
 import sys
 
 sys.path.append('..')
+sys.path.append('..')
+sys.path.append('../SGMM')
+sys.path.append('../metrics')
+sys.path.append('../loaders')
+sys.path.append('../oldCode')
+sys.path.append('../visual')
+sys.path.append('../testingCodes')
+sys.path.append('../otherModels')
 
 import numpy as np
 import pandas as pd
@@ -33,7 +41,7 @@ import time
 
 
 def experiment1( X, Y, model, averaging = 10, train_size = 0.25, trans = 10,
-                warm_it = 6, kmeans = 1, warm = 0):
+                warm_it = 6, kmeans = 1, warm = 0, fitmod = 0):
     
     """Transduction and averaging experiment 
     
@@ -67,7 +75,7 @@ def experiment1( X, Y, model, averaging = 10, train_size = 0.25, trans = 10,
                                                        random_state = i )
         
         
-        index100.append( itr[100])
+        index100.append( itr[10])
         
         #STUDY TRANSDACTION 
         #for each of the transdactional splits we need the results
@@ -79,7 +87,8 @@ def experiment1( X, Y, model, averaging = 10, train_size = 0.25, trans = 10,
                                                      ytrain, ytest,
                                                      trans = trans, warm = warm,
                                                      warm_it = warm_it, 
-                                                     kmeans = kmeans)
+                                                     kmeans = kmeans,
+                                                     fitmod = fitmod)
         totResTrain.append( npTrain )
         totResTest.append( npTest )
         print("################ END OF ITERATION ###########################")
@@ -105,7 +114,8 @@ def experiment1( X, Y, model, averaging = 10, train_size = 0.25, trans = 10,
         
         
 def transduction(model,  Xtrain, Xtest, ytrain, ytest, trans = 10, warm_it = 2,
-                                                        warm = 0, kmeans = 1):
+                                                        warm = 0, kmeans = 1,
+                                                        fitmod = 0):
     """
     FUNCTION PERFORMING THE TRANSDACTION EXPERIMENT 
     
@@ -151,7 +161,8 @@ def transduction(model,  Xtrain, Xtest, ytrain, ytest, trans = 10, warm_it = 2,
                 model = model.fit( Xtrain = Xtrain,
                                       Xtest = Xtest[ begin: ],
                                       ytrain = ytrain, mTrain1 = mTrain,
-                                      mTest1 = mTest, kmeans = kmeans)
+                                      mTest1 = mTest, kmeans = kmeans,
+                                      mod = fitmod)
                 #index of test data used
                 ind = indexTest[begin:]
                         
@@ -160,7 +171,7 @@ def transduction(model,  Xtrain, Xtest, ytrain, ytest, trans = 10, warm_it = 2,
                                       Xtest = Xtest[ begin:end ],
                                       ytrain = ytrain,
                                       mTrain1 = mTrain, mTest1 = mTest, 
-                                      kmeans = kmeans)
+                                      kmeans = kmeans, mod = fitmod)
                 
                 #take the memeberships in case we want to use them in a warm 
                 #start

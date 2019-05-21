@@ -9,6 +9,14 @@ Created on Tue May  7 10:42:57 2019
 import sys
 
 sys.path.append('..')
+sys.path.append('..')
+sys.path.append('../SGMM')
+sys.path.append('../metrics')
+sys.path.append('../loaders')
+sys.path.append('../oldCode')
+sys.path.append('../visual')
+sys.path.append('../testingCodes')
+sys.path.append('../otherModels')
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -119,6 +127,30 @@ km = 1
 #Xtrain, Xtest, ytrain, ytest = model.split( X = X, y = Y, split = 0.25)
 gausDict = experiment1(X, Y.astype( int ), model, trans = trans, averaging = avg,
                        warm = warm, warm_it = wit, kmeans = km, train_size = ts)
+
+
+
+
+testRes = gausDict['testF']
+testResPd = pd.DataFrame(testRes, columns = columns)
+index = np.arange(40)
+
+fig, ax = plt.subplots( 1, 1)
+ax.plot( index, testResPd['precision'])
+ax.plot( index, testResPd['accuracy'])
+ax.plot( index, testResPd['sensitivity'])
+ax.plot( index, testResPd['specificity'])
+ax.plot( index, testResPd['f1'])
+ax.plot( index, testResPd['auc'])
+ax.set_xlabel('folds')
+ax.set_ylabel('Performance_Metric')
+ax.legend(['precision', 'accuracy', 'sensitivity', 'specificity', 'f1', 'auc'])
+
+
+
+
+
+
 
 #FIT THE MODEL 
 #start = time.time()
