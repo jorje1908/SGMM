@@ -185,14 +185,14 @@ columns = ['cluster', 'size', 'high_cost%','low_cost%',
                        'accuracy', 'balanced accuracy', 'f1', 'auc']
 testRes = gausDict['testF']
 testResPd = pd.DataFrame(testRes, columns = columns)
-index = np.arange(trans)
+index = np.arange(len(testResPd['precision']))
 
 fig, ax = plt.subplots( 1, 1)
-ax.plot( index, testResPd['precision'])
-ax.plot( index, testResPd['accuracy'])
-ax.plot( index, testResPd['sensitivity'])
-ax.plot( index, testResPd['specificity'])
-ax.plot( index, testResPd['f1'])
+#ax.plot( index, testResPd['precision'])
+#ax.plot( index, testResPd['accuracy'])
+#ax.plot( index, testResPd['sensitivity'])
+#ax.plot( index, testResPd['specificity'])
+#ax.plot( index, testResPd['f1'])
 ax.plot( index, testResPd['auc'])
 ax.set_xlabel('folds')
 ax.set_ylabel('Performance_Metric')

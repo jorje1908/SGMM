@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Created on Mon Mar 18 19:14:37 2019
+Created on Thu May 23 23:27:12 2019
 
 @author: george
 """
@@ -743,16 +743,16 @@ class SupervisedGMM():
             #find the maximum class log likelihood 
             #for each data point
             maxLog = np.max(logprobaMatrix, axis = 1)
-
+            #regularization  of the log likelihood matrix
+        
             logprobaMatrix = ( logprobaMatrix.T - maxLog).T
 
-            
             #### NEXT 4 LINES BEFORE
             probMat = np.exp( logprobaMatrix ) + regk
             sumRel = np.sum( probMat, axis = 1)
             probMat = (probMat.T / sumRel).T
             probMat = probMat*np.array(pis)
- 
+            
             #after modification
             #maxProb = np.exp( maxLog )
             #probMat2 = ((np.exp( logprobaMatrix )*np.array(pis)).T*maxProb).T
@@ -934,13 +934,13 @@ class SupervisedGMM():
         
         #FOR EACH MODEL CALCULATE THE PREDICTION FOR EACH DATA POINT
         for i, model in enumerate( logisticModels ):
-            
+           
             #probability each test point
             #to be in class 1
             if trans == 1:
-                probsTest = model.predict_proba(Xtest)[:,1] 
+                probsTest = model.predict_proba( Xtest )[:,1] 
                 pMatrixTest += probsTest*self.mTest[:, i]
-                
+               
             #probability each  training point
             #to be in class 1                                       
             probsTrain = model.predict_proba(Xtrain)[:,1] 
@@ -955,10 +955,13 @@ class SupervisedGMM():
         models = self.LogRegr
         memb = self.predict_GMMS( X )     
         #totalProb = np.zeros( [X.shape[0], memb.shape])
-        totalProb = np.zeros( [X.shape[0]])
-        for i in np.arange( memb.shape[1] ):
+        totalProb = np.zeros( ( X.shape[0] ) ) 
+        for i, model  in enumerate( models ):
+            
             #probability  points of X belong in class 1
-            totalProb += models[i].predict_proba( X )[:, 1]*memb[:, i]
+            probsTest = model.predict_proba( X )[:, 1]
+            totalProb +=  probsTest*memb[:, i]
+            
         
         return totalProb
         

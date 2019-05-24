@@ -251,10 +251,13 @@ def calc_metrics(model = None, cluster = -1, y = None, tau = 0.5,
                  
                  probabilities = custom_prob
                 
-                    
-             auc = roc_auc_score( y , probabilities)  
-             roc = roc_curve(y, probabilities)
-             
+             try:       
+                 auc = roc_auc_score( y , probabilities)  
+                 roc = roc_curve(y, probabilities)
+             except:
+                 print( "Problem in Calculating auc")
+                 auc = 0
+                 roc = []
              #Calculate tau if calc_tau is 1
              #Given we have provided probability matrix
             
@@ -285,10 +288,12 @@ def calc_metrics(model = None, cluster = -1, y = None, tau = 0.5,
              FN = len( np.where(  (y == 1) * (predictions == 0) )[0] )
              
              #print(TP, TN, FP, FN, clusterSize)
-             
-             specificity = TN/(FP + TN)
-             FPR = 1 - specificity
-             
+             try:
+                 specificity = TN/(FP + TN)
+                 FPR = 1 - specificity
+             except:
+                 specificity = -1000
+                 FPR = -1000
              #PUT ALL THE METRICS IN A LIST AND RETURN THEM
              metrics =  [cluster, clusterSize, highCostPerc, lowCostPerc,
                          TP, TN, FP, FN,

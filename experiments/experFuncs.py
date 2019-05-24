@@ -75,7 +75,7 @@ def experiment1( X, Y, model, averaging = 10, train_size = 0.25, trans = 10,
                                                        random_state = i )
         
         
-        index100.append( itr[10])
+        index100.append( itr[0])
         
         #STUDY TRANSDACTION 
         #for each of the transdactional splits we need the results
