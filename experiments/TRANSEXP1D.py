@@ -47,23 +47,23 @@ cov2 = covG
 g2 = multivariate_normal(mean = m2, cov = cov2)
 
 #GAUSS 3
-m3 = [ 0.5 ]
+m3 = [ 0.0 ]
 cov3 = covG2
 g3 = multivariate_normal(mean = m3, cov = cov3)
 
 #creating the separting hyperplane based  on points p1 p2 for third gaussian
-b3 = 0.6
+b3 = 0.0
 w3 = np.array([b3, 1])*enhance
 
 #GAUSS 4
-m4 = [ 2.5 ]
+m4 = [ 3 ]
 cov4 = covG2
 g4 = multivariate_normal(mean = m4, cov = cov4)
 
 #creating the separting hyperplane based  on points p1 p2 for third gaussian
 
-b4 =  2.4
-w4 = np.array([b4, 1])*enhance
+b4 =  3
+w4 = np.array([-b4, 1])*enhance
 
 
 #GENERATE DATA 
@@ -84,7 +84,7 @@ w4 = np.array([b4, 1])*enhance
 ##Fitting SGMM
 adaR = 1
 #alpha = [ 0.00001, 0.0001, 0.001, 0.01, 0.1, 1, 10, 100, 1000, 0.0009]
-alpha = [0.000009]
+alpha = [0.09]
 n_clusters = 2
 vrb = 0
 cv = 10
@@ -102,11 +102,11 @@ model = SupervisedGMM(  n_clusters = n_clusters, max_iter2 = mx_it2, tol = 10**(
 
 N = 120
 N1 = 20
-averaging = 100 #console 1 averaging is 10000
+averaging = 200 #console 1 averaging is 10000
 
 split = 0.17
-start = 10
-end = 250
+start = 5
+end = 220
 step = 5
 test1 = []
 test2 = []
@@ -140,8 +140,8 @@ for n in np.arange( start, end, step ):
         probTest, probTrain = model.predict_prob_int( Xtest = Xtest, Xtrain = Xtrain )
         probTest2 = model.predict_proba( Xind )
 
-        res = sgmmResults( model , probTest, probTrain, ytest, ytrain)
-        res2 = sgmmResults( model , probTest2, probTrain, Yind, ytrain)
+        res = sgmmResults( model , probTest.copy(), probTrain.copy(), ytest, ytrain)
+        res2 = sgmmResults( model , probTest2, probTrain.copy(), Yind, ytrain)
         testMets1 += res['testMet']['accuracy'][0]
         testMets2 += res2['testMet']['accuracy'][0]
      #END OF INSIDE LOOP

@@ -917,19 +917,22 @@ class SupervisedGMM():
            
         """
         #CHECKING IF THE MODEL IS FITTED 
-        if self.mTest is None:
-            print("The Model is not fitted or some other error might have\
+        trans = self._trans
+        if trans == 1:
+            if self.mTest is None:
+                print("The Model is not fitted or some other error might have\
                               occured")
-            return
+                return
         
        
         logisticModels = self.LogRegr
-        trans = self._trans
+       
         
         #PROBABILITY MATRIX THE METHOD WILL RETURN
         #SPECIFICALLY EACH ENTRANCE WILL HAVE THE PROBABILITY 
         #EACH DATAPOINT TO BE 1
-        pMatrixTest = np.zeros( (Xtest.shape[0]) )
+        if trans == 1:
+            pMatrixTest = np.zeros( (Xtest.shape[0]) )
         pMatrixTrain = np.zeros( (Xtrain.shape[0]) )
         
         #FOR EACH MODEL CALCULATE THE PREDICTION FOR EACH DATA POINT
@@ -945,7 +948,8 @@ class SupervisedGMM():
             #to be in class 1                                       
             probsTrain = model.predict_proba(Xtrain)[:,1] 
             pMatrixTrain += probsTrain*self.mTrain[:, i]
-            
+        if trans == 0:   
+            pMatrixTest = self.predict_proba(Xtest)   
             
         return pMatrixTest, pMatrixTrain
     

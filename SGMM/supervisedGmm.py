@@ -214,13 +214,13 @@ class SupervisedGMM():
             Xtrain, Xtest, ytrain, ytest , idx1, idx2  = \
                                 train_test_split(data[:,:-1], data[:,-1], 
                                  np.arange( data.shape[0] ), 
-                                 test_size = split, random_state = 0,
+                                 test_size = split, random_state = 1512,
                                  stratify = y)
         else:
             Xtrain, Xtest, ytrain, ytest, idx1, idx2 = \
                                 train_test_split(X, y, 
                                  np.arange( X.shape[0] ), 
-                                 test_size = split, random_state = 0,
+                                 test_size = split, random_state = 1512,
                                  stratify = y)
         self.idx1 = idx1
         self.idx2 = idx2
@@ -291,7 +291,9 @@ class SupervisedGMM():
             #KMEANS INITIALIZATION
             if kmeans == 0:
                mTrain = np.random.rand( dimXtrain, n_clusters) + regk
-               mTest = np.random.rand( dimXtest, n_clusters )  + regk
+               
+               if trans == 1:
+                   mTest = np.random.rand( dimXtest, n_clusters )  + regk
             
             else:
                 km = KMeans( n_clusters = n_clusters, random_state = 0)
@@ -917,36 +919,40 @@ class SupervisedGMM():
            
         """
         #CHECKING IF THE MODEL IS FITTED 
-        if self.mTest is None:
-            print("The Model is not fitted or some other error might have\
+        trans = self._trans
+        if trans == 1:
+            if self.mTest is None:
+                print("The Model is not fitted or some other error might have\
                               occured")
-            return
+                return
         
        
         logisticModels = self.LogRegr
-        trans = self._trans
+       
         
         #PROBABILITY MATRIX THE METHOD WILL RETURN
         #SPECIFICALLY EACH ENTRANCE WILL HAVE THE PROBABILITY 
         #EACH DATAPOINT TO BE 1
-        pMatrixTest = np.zeros( (Xtest.shape[0]) )
+        if trans == 1:
+            pMatrixTest = np.zeros( (Xtest.shape[0]) )
         pMatrixTrain = np.zeros( (Xtrain.shape[0]) )
         
         #FOR EACH MODEL CALCULATE THE PREDICTION FOR EACH DATA POINT
         for i, model in enumerate( logisticModels ):
-            
+           
             #probability each test point
             #to be in class 1
             if trans == 1:
-                probsTest = model.predict_proba(Xtest)[:,1] 
+                probsTest = model.predict_proba( Xtest )[:,1] 
                 pMatrixTest += probsTest*self.mTest[:, i]
-                
+               
             #probability each  training point
             #to be in class 1                                       
             probsTrain = model.predict_proba(Xtrain)[:,1] 
             pMatrixTrain += probsTrain*self.mTrain[:, i]
-            
-            
+        if trans == 0:   
+            pMatrixTest = self.predict_proba(Xtest)   
+        
         return pMatrixTest, pMatrixTrain
     
     def predict_proba(self, X = None):
