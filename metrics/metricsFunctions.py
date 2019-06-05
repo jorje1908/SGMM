@@ -113,7 +113,7 @@ def optimalTau(probabilities, ylabels, returnAll = 0, mode = 0,
                 returnAll: 0 or 1 :Default 0, If 1 return a more complete
                 set of parameters except tau
                 mode: 0 (maximize F1 score), 1 (maximize precision), 2
-                      (maximize) recall
+                      (maximize) recall, 3(maximize accuracy)
                 targetMax: We included one more parameter if targetMax is 0
                 then our Target is precision  if our targetMax is 1 then the 
                 target is recall
@@ -135,11 +135,12 @@ def optimalTau(probabilities, ylabels, returnAll = 0, mode = 0,
                                                     #AS THE POSITIVE LABELS OF THE DATASET
             
             FN = 0 #AT THE BEGGINING  WE HAVE 0 POSITIVE POINTS  CLASSIFIED AS NEGATIVE
-            #XIAO HERE YOU WILL PUT  ylabels == -1
-            FP = len( np.where( ylabels1 == 0)[0] )
-            
+            TN = 0 #AT THE BEGINNING  WE HAVE 0 NEGATIVE POINTS
+         
+            FP = len( np.where( ylabels1 == 0)[0] ) # AT THE BEGINNING FALSE POSITIVES ARE THE SAME AS NEGATIVEES IN THE SET
             precision = TP/(TP + FP)
             recall = TP/ (TP + FN)
+            accuracy = (TP + TN)/(TP + FN +FP + TN)
             
 #            print(precision, recall, TP, FN, FP)
 #            return
@@ -150,7 +151,7 @@ def optimalTau(probabilities, ylabels, returnAll = 0, mode = 0,
             prec = precision
             rec = recall
             #list with f1, precision , recall
-            metOld = [f1, precision, recall]
+            metOld = [f1, precision, recall, accuracy]
             #precision recall list of lists
             precRec = [precision, recall]
             #tau that maximizes target with given targetvalue
@@ -168,6 +169,7 @@ def optimalTau(probabilities, ylabels, returnAll = 0, mode = 0,
                 
                 if ylabels1[i] == 0: #FOR XIAO HERE -1
                     FP -= 1
+                    TN += 1
                     
                 if (TP + FP == 0):
                     
@@ -177,6 +179,7 @@ def optimalTau(probabilities, ylabels, returnAll = 0, mode = 0,
                     precision = TP/(TP + FP)
                     
                 recall = TP/ (TP + FN)
+                accuracy = (TP + TN)/(TP + TN + FP + FN)
                 
                 if (precision + recall) == 0:
                 
@@ -185,7 +188,7 @@ def optimalTau(probabilities, ylabels, returnAll = 0, mode = 0,
                 else:
                     
                     f1new = ( 2*precision*recall )/( precision + recall )  
-                    metNew = [f1new, precision, recall]
+                    metNew = [f1new, precision, recall, accuracy]
                     
                 #thresholds with F1 scores if you want to draw a graph
                 prob_F1.append( [probability, metNew[mode]] )  
@@ -209,9 +212,9 @@ def optimalTau(probabilities, ylabels, returnAll = 0, mode = 0,
                     f1 = f1new
                     prec = precision  #you can return precision
                     rec = recall      #you can return  recall
-                    metOld  = [f1, prec, rec]
-                                        # these are mostly for correctness
-                                        #checking
+                    acc = accuracy
+                    metOld  = [f1, prec, rec, acc]
+                                        
             
             #OUTSIDE THE LOOP
             if returnAll == 1:
@@ -389,9 +392,11 @@ def metrics_cluster(models = None, ytrain = None, ytest = None,
                 
             return metricsTrain, metricsTest
         
-def sgmmResults( model, probTest, probTrain, ytest, ytrain ):
+def sgmmResults( model, probTest, probTrain, ytest, ytrain, tau = None,
+                mode = 3):
     #a Summary of predictions and interesting model parameters
-    
+    #mixing coef
+    pis = model.pis
     #means
     means = model.means
     #covariances
@@ -411,15 +416,16 @@ def sgmmResults( model, probTest, probTrain, ytest, ytrain ):
         best_alphas.append( logR.best_params_)
         
     #CALCULATE THE OPTIMAL TAU
-    tau = optimalTau(probTrain, ytrain)
+    if tau is None:
+        tau = optimalTau(probTrain, ytrain, mode = mode)
     
     metTest,_ = calc_metrics(custom_prob = probTest.copy(), tau = tau, 
                                                                      y = ytest)
     metTrain ,_= calc_metrics(custom_prob = probTrain.copy(), tau = tau,
                                                                      y = ytrain)
     
-    predictTrain = predict_y( probTrain, tau )
-    predictTest = predict_y( probTest, tau )
+    predictTrain = predict_y( probTrain.copy(), tau )
+    predictTest = predict_y( probTest.copy(), tau )
     
     columns = ['cluster', 'size', 'high_cost%','low_cost%', 
                        'TP', 'TN', 'FP', 'FN', 
@@ -429,11 +435,18 @@ def sgmmResults( model, probTest, probTrain, ytest, ytrain ):
     metTestSGMM = pd.DataFrame( [metTest], columns = columns)
     metTrainSGMM = pd.DataFrame( [metTrain], columns = columns)
     
+    Ntrain = ytrain.shape[0]
+    Npos = len( np.where( ytrain == 1)[0])
+    Nneg = Ntrain - Npos
+    posPerc = Npos/Ntrain
+    negPerc = Nneg/Ntrain
+    
     results = {"testMet": metTestSGMM, "trainMet": metTrainSGMM,
                "yTest": predictTest, "yTrain": predictTrain, "memberTr":
                    mTrain, "memberTest": mTest, "means": means, "weights":
                        weights, "cov": cov, "tau": tau, "best_alphas":
-                           best_alphas}
+                           best_alphas, 'pis': pis, "posP": posPerc,
+                           "negP": negPerc}
         
     return results
     

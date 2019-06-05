@@ -32,7 +32,7 @@ from dataGen import genData1D
 np.random.seed( seed = 0 )
 
 covG = np.array( 3 )
-covG2 = np.array( 1.5 )
+covG2 = np.array( 3 )
 enhance = 100
 
 mix = [0.5, 0.5]
@@ -84,7 +84,7 @@ w4 = np.array([-b4, 1])*enhance
 ##Fitting SGMM
 adaR = 1
 #alpha = [ 0.00001, 0.0001, 0.001, 0.01, 0.1, 1, 10, 100, 1000, 0.0009]
-alpha = [0.09]
+alpha = [ 0.2 ]
 n_clusters = 2
 vrb = 0
 cv = 10
@@ -100,20 +100,18 @@ model = SupervisedGMM(  n_clusters = n_clusters, max_iter2 = mx_it2, tol = 10**(
                          transduction = 1, verbose = vrb, scoring = scoring,
                          cv = cv, warm = warm, tol2 = 10**(-2) )
 
-N = 120
+points = 100
 N1 = 20
-averaging = 200 #console 1 averaging is 10000
-
-split = 0.17
-start = 5
-end = 220
-step = 5
+averaging = 1 #console 1 averaging is 10000
+start = 1
+end = 100
+step = 1
 test1 = []
 test2 = []
 for n in np.arange( start, end, step ):
-    N = 100 + n
+    N = points + n
     N1 = n
-    split = 1 - 100/N
+    split = 1 - points/N
     testMets1 = 0
     testMets2 = 0
     for i in np.arange( averaging ):
