@@ -253,11 +253,24 @@ class SupervisedGMM():
         
     def fit(self, Xtrain = None, ytrain = None, Xtest = None, ind1 = None,
                     ind2 = None, mTrain1 = None, mTest1 = None, 
-                    kmeans = 0, mod = 0, simple = 0):
+                    kmeans = 0, mod = 1, simple = 0):
         """ 
             Fit the Supervised Mixtures of Gaussian Model
             ind1: chose the features to use in the training of the Ml model
             ind2: chose the fetures to use in the training of the Gaussians
+            Xtrain: training data
+            ytrain: labels of training data
+            Xtest: testing data if tranduction is on
+            kmeans: kmeans initialization  of memberships
+            mod: mode of computing the probabilities for gaussians, default
+            mod = 1
+            simple  = binary variable to decide if you will use simple 
+            mixture of gaussians plus classification [simple = 1], if 
+            simple is 0 [simple = 0] then use prediction driven gaussians
+            for training ( the proposed model )
+            a third choice is use simple  = 0  and set the altern variable from
+            the model to 1 this will use no prediction driven results till one 
+            point and then  it will alter to prediction driven
         """
         #CHECK IF ALL DATA ARE GIVEN
         self.ind1 = ind1
@@ -300,6 +313,7 @@ class SupervisedGMM():
         altern = self._altern
         
         dimXtrain = Xtrain.shape[0]
+        dimXtest = []
         if trans == 1:
             dimXtest = Xtest.shape[0]
         #regularize the sums  for numerical instabilities
@@ -315,56 +329,9 @@ class SupervisedGMM():
         #BECAUSE TRAIN IS SUPERVISED MEMBERSHIP
         #TEST IS UNSUPERVISED
         
-        if warm == 0: #IF WE HAVE WARM START
-            
-            if kmeans == 0: #NO KMEANS INITIALIZATION (RANDOM INIT)
-               mTrain = np.random.rand( dimXtrain, n_clusters) + regk
-               
-               if trans == 1:
-                   mTest = np.random.rand( dimXtest, n_clusters )  + regk
-                   
-               else:
-                   mTest = []
-            
-            else: #KMEANS INITIALIZATION
-                
-                km = KMeans( n_clusters = n_clusters, random_state = 0)
-                
-                if trans == 1:
-                    #FIT KMEANS IN DATA (TEST AND TRAIN IF TRANSDUCTION)
-                    km = km.fit( np.concatenate( (Xtrain, Xtest), axis = 0))
-                    mAll = np.zeros([ dimXtrain +dimXtest, n_clusters])
-                    
-                else:
-                    #FIT ONLY TRAIN IF NOT TRANSDUCTION
-                    km.fit( Xtrain)
-                    mAll = np.zeros([ dimXtrain , n_clusters])
-                
-                #TAKE THE LABELS FROM KMEANS
-                labels = km.labels_
-                
-                for j in np.arange( labels.shape[0] ): #MAKE THE MEMBERSHIPS
-                    mAll[j, labels[j]] = 1
-                    
-                mTrain = mAll[0: dimXtrain ]
-                
-                if trans == 1:
-                    
-                    mTest = mAll[ dimXtrain :]
-                    
-                else:
-                    
-                    mTest = []
-                
-        
-        else: #IF WE DO NOT HAVE WARM START
-            tr = mTrain1.shape[0]
-            ts = mTest1.shape[0]
-            mTrain = np.random.rand( dimXtrain, n_clusters) + regk
-            mTest = np.random.rand( dimXtest, n_clusters )  + regk
-            
-            mTrain[ 0:tr, :] = mTrain1
-            mTest[ 0: ts, :] = mTest1
+        mTrain, mTest = self.initializeMemb(warm, kmeans, dimXtrain, n_clusters,
+                       regk, trans, dimXtest, Xtrain, Xtest, mTrain1,
+                       mTest1)
 
 
         #NORMALIZE MEMBERSHIPS SO EACH ROW SUMS TO 1
@@ -417,14 +384,7 @@ class SupervisedGMM():
                  mAll = mTrain
                
             
-            #params is  a dictionary with the following structure
-            #params = {'cov':cov, 'means': means, 'pis' : pis, 
-            #                 'probMat':probMat, 'Gmms': Gmms}
-            #cov: list of covariances
-            #means: list of means
-            #pis : list of probabilities of a specific gaussian to be chosen
-            #probMat: posterior probability membership matrix
-            #Gmms ; a list of Object with the Gaussians for each class
+            #take the parameters of the GMM models
             params = self.gmmModels( data, mAll, mcov )
                 
             gmmProb = params['probMat']
@@ -525,9 +485,84 @@ class SupervisedGMM():
         self.setGauss( params )
         
         return self
+        #END OF FIT FUNCTION##################################################
+        
+    def initializeMemb( self, warm, kmeans, dimXtrain, n_clusters,
+                       regk, trans, dimXtest, Xtrain, Xtest, mTrain1,
+                       mTest1):
+        
+        """ Function to initialize memberships,
+        warm: if we want a warm start ((provide mTrain1, mTest1))
+        kmeans: [binary] kmeans initialization or not
+        dimXtrain: number of training data
+        n_clusters: number of clusters we use
+        regk: amount of regularization for the divisions
+        trans: use transduction or not (if yes we need test data too )
+        if we have trunsduction give the dimension of test data
+        Xtrain: training data
+        Xtest: testing data
+        mTrain1: given thatwe want a warm start give the initial memeberhsips
+        mTest1: given that we want a warm start give the initial memeberships
+        of test data
+        """
+        
+        
+        
+        if warm == 0: #IF WE HAVE WARM START
             
+            if kmeans == 0: #NO KMEANS INITIALIZATION (RANDOM INIT)
+               mTrain = np.random.rand( dimXtrain, n_clusters) + regk
+               
+               if trans == 1:
+                   mTest = np.random.rand( dimXtest, n_clusters )  + regk
+                   
+               else:
+                   mTest = []
             
+            else: #KMEANS INITIALIZATION
+                
+                km = KMeans( n_clusters = n_clusters, random_state = 0)
+                
+                if trans == 1:
+                    #FIT KMEANS IN DATA (TEST AND TRAIN IF TRANSDUCTION)
+                    km = km.fit( np.concatenate( (Xtrain, Xtest), axis = 0))
+                    mAll = np.zeros([ dimXtrain +dimXtest, n_clusters])
+                    
+                else:
+                    #FIT ONLY TRAIN IF NOT TRANSDUCTION
+                    km.fit( Xtrain)
+                    mAll = np.zeros([ dimXtrain , n_clusters])
+                
+                #TAKE THE LABELS FROM KMEANS
+                labels = km.labels_
+                
+                for j in np.arange( labels.shape[0] ): #MAKE THE MEMBERSHIPS
+                    mAll[j, labels[j]] = 1
+                    
+                mTrain = mAll[0: dimXtrain ]
+                
+                if trans == 1:
+                    
+                    mTest = mAll[ dimXtrain :]
+                    
+                else:
+                    
+                    mTest = []
+                
+        
+        else: #IF WE DO NOT HAVE WARM START
+            tr = mTrain1.shape[0]
+            ts = mTest1.shape[0]
+            mTrain = np.random.rand( dimXtrain, n_clusters) + regk
+            mTest = np.random.rand( dimXtest, n_clusters )  + regk
+            
+            mTrain[ 0:tr, :] = mTrain1
+            mTest[ 0: ts, :] = mTest1
+        
+        return mTrain, mTest
 
+            
+   
                          
                 
 ################### FITTING LOGISTIC REGRESSION MODEL #########################     
