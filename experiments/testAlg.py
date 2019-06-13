@@ -35,9 +35,9 @@ np.random.seed( seed = 0)
 p1, p2 = 0.5, 0.5
 mF, mS = 0, 4
 m1, m2, m3 , m4 = mF, mS, mF, mS
-covG = 1.0
+covG = 1.5
 cov1, cov2, cov3, cov4 =covG, covG, covG, covG
-enhance = 4
+enhance = 10
 w1 = np.array([0, 1])*enhance
 w2 = np.array([-4, 1])*enhance
 
@@ -61,14 +61,14 @@ dataTest =  genData1D(pis, meanX, covX,  meanY,  covY, w, 1000)
 
 #INITIALIZE MODEL
 adaR = 1
-alpha = [0.00000000001]          
+alpha = [0.0000000000000001]          
 n_clusters = 2
 vrb = 1
 cv = 10
 scoring = 'neg_log_loss'
 mcov = 'full'
 mx_it = 1000
-mx_it2 = 100
+mx_it2 = 10
 warm = 0
 km = 1
 mod = 1
@@ -87,7 +87,7 @@ model = SupervisedGMM(  n_clusters = n_clusters, max_iter2 = mx_it2, tol = 10**(
                          cv = cv, warm = warm, tol2 = 10**(-2) , mix = mix1,
                          m_sparse = m_sparse, m_sparseL = m_sparseL, m_LR = m_LR,
                          m_sp_it1 = m_sp_it1, m_sp_it2 = m_sp_it2, 
-                         m_choice = m_choice, altern = 0)
+                         m_choice = m_choice, altern = 1)
 
 
 #take X and Y

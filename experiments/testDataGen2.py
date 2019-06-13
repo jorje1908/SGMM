@@ -30,6 +30,9 @@ probxG, probyG, genxG, genyG, genYG, sigm, genXG
 
 def gaus1d( x, p,  m, cov):
     
+    #calculates the density of a mixture
+    #of gaussians
+    
     px = 0
     
     for i in np.arange( len(m)):
