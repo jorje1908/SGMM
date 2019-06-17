@@ -140,7 +140,7 @@ def optimalTau(probabilities, ylabels, returnAll = 0, mode = 0,
             FP = len( np.where( ylabels1 == 0)[0] ) # AT THE BEGINNING FALSE POSITIVES ARE THE SAME AS NEGATIVEES IN THE SET
             precision = TP/(TP + FP)
             recall = TP/ (TP + FN)
-            accuracy = (TP + TN)/(TP + FN +FP + TN)
+            accuracy = (TP + TN)/(TP + FN + FP + TN)
             
 #            print(precision, recall, TP, FN, FP)
 #            return
@@ -167,7 +167,7 @@ def optimalTau(probabilities, ylabels, returnAll = 0, mode = 0,
                     TP -= 1
                     FN += 1
                 
-                if ylabels1[i] == 0: #FOR XIAO HERE -1
+                if ylabels1[i] == 0: 
                     FP -= 1
                     TN += 1
                     
@@ -184,7 +184,8 @@ def optimalTau(probabilities, ylabels, returnAll = 0, mode = 0,
                 if (precision + recall) == 0:
                 
                     f1new = 0
-                    
+                    metNew = [f1new, precision, recall, accuracy]
+
                 else:
                     
                     f1new = ( 2*precision*recall )/( precision + recall )  
@@ -214,6 +215,7 @@ def optimalTau(probabilities, ylabels, returnAll = 0, mode = 0,
                     rec = recall      #you can return  recall
                     acc = accuracy
                     metOld  = [f1, prec, rec, acc]
+                   # print(acc, threshold)
                                         
             
             #OUTSIDE THE LOOP
@@ -267,8 +269,8 @@ def calc_metrics(model = None, cluster = -1, y = None, tau = 0.5,
              
              #THRESHOLDING BASED ON TAU IN ORDER TO GET THE 
              #ESTIMATED LABELS FOR EACH DATAPOINT
-             probabilities[ np.where( probabilities >= tau ) ] = 1
-             probabilities[ np.where( probabilities < tau ) ] = 0
+             probabilities[ np.where( probabilities > tau ) ] = 1
+             probabilities[ np.where( probabilities <= tau ) ] = 0
              predictions = probabilities
               
              #METRICS CALCULATION
@@ -393,7 +395,7 @@ def metrics_cluster(models = None, ytrain = None, ytest = None,
             return metricsTrain, metricsTest
         
 def sgmmResults( model, probTest, probTrain, ytest, ytrain, tau = None,
-                mode = 3):
+                mode = 3, Xtest = None):
     #a Summary of predictions and interesting model parameters
     #mixing coef
     pis = model.pis
@@ -406,7 +408,10 @@ def sgmmResults( model, probTest, probTrain, ytest, ytrain, tau = None,
     #logistic regressions
     logRegr = model.LogRegr
     #train memberships
-    mTest = model.mTest
+    if Xtest is None:
+        mTest = model.mTest
+    else:
+        mTest = model.predict_GMMS(Xtest)
     #test memberships
     mTrain = model.mTrain
     

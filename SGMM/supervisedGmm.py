@@ -253,7 +253,8 @@ class SupervisedGMM():
         
     def fit(self, Xtrain = None, ytrain = None, Xtest = None, ind1 = None,
                     ind2 = None, mTrain1 = None, mTest1 = None, 
-                    kmeans = 0, mod = 1, simple = 0, comp_Lik = 0):
+                    kmeans = 1, mod = 1, simple = 0, comp_Lik = 0,
+                    memb_mix = 0.9, hard_cluster = 0):
         """ 
             Fit the Supervised Mixtures of Gaussian Model
             
@@ -273,6 +274,11 @@ class SupervisedGMM():
             the model to 1 this will use no prediction driven results till one 
             point and then  it will alter to prediction driven
             comp_Lik: (UNSTABLE) Compute Likelihood  or not 
+            memb_mix: parameter on how to mix the supervised along with the 
+                      memberships
+            
+            hard_cluster: hard cluster memberships before the logistic regression
+                          fitting.
             
             
         """
@@ -375,7 +381,7 @@ class SupervisedGMM():
                               n_clusters, mTrain, adaR, alpha, max_iter,
                               tol2, Xtrain, ytrain, vb, penalty, scoring,
                               cv, regk, ind1, indexing, logiProb, logLogist, 
-                              param_grid )
+                              param_grid, hard_cluster = hard_cluster )
                 
             else: #IF WE USE SIMPLE MIXTURES OF GAUSSIANS JUST FIT AT LAST ITER
                 if iter2 == ( max_iter2 - 1):
@@ -383,7 +389,7 @@ class SupervisedGMM():
                               n_clusters, mTrain, adaR, alpha, max_iter,
                               tol2, Xtrain, ytrain, vb, penalty, scoring,
                               cv, regk, ind1, indexing, logiProb, logLogist, 
-                              param_grid )
+                              param_grid, hard_cluster = hard_cluster )
                     
             #WE TAKE THE MEMBERSHIPS AND ALL THE DATA
             #TO FIT THE GAUSSIANS USING THE EM ALGORITHM FOR GMM 
@@ -405,7 +411,9 @@ class SupervisedGMM():
             #THIS IS AFTER MODIFICATIONS#######################################
             if mod == 1: #THIS IS THE MOD WE WILL KEEP IN THE FUTURE
                 gmmProb = params['probMat2']
-                gmmLogprob = params['logProb']    
+                gmmLogprob = params['logProb']  
+                self.Gmms = params['Gmms']
+                self.mixes = params['pis']
             #END OF MODIFICATION ##############################################
             
            #CALCULATE NEW MEMBERSHIPS FOR TRAIN AND TEST
@@ -414,6 +422,7 @@ class SupervisedGMM():
                 
             else: #PREDICTION DRIVEN (SGMM)
                 mNewTrain = logiProb * gmmProb[0: dimXtrain, :] + regk
+                
                 simple = 0
             
             ###################################################################
@@ -452,6 +461,9 @@ class SupervisedGMM():
                 
             #MAKE A SOFT CHANGE IN MEMEBRSHIPS MIXING OLD WITH NEW 
             #MEMBERSHIPS WITH DEFAULT MIXING OF 0.5
+            mNewTrain = mNewTrain*(1-memb_mix) + \
+                                            self.predict_GMMS(Xtrain)*memb_mix
+                                            
             mTrain = mNewTrain*(1-mix) + mTrain*(mix)
             if trans == 1:
                 mTest = mNewTest*(1-mix) + mTest*(mix)
@@ -459,8 +471,16 @@ class SupervisedGMM():
             
             print("GMM iteration: {}, error: {}".format(iter2, error))
             if error < tol:
+                
                  break
-        ############ END OF EM UPDATES #######################################    
+        ############ END OF EM UPDATES #######################################
+       #if simple  and error < tol:
+        models, logiProb, logLogist = self.fitLogisticRegression( 
+                              n_clusters, mTrain, adaR, alpha, max_iter,
+                              tol2, Xtrain, ytrain, vb, penalty, scoring,
+                              cv, regk, ind1, indexing, logiProb, logLogist, 
+                              param_grid, hard_cluster = hard_cluster )
+        
         self.Gmms = params['Gmms']
         self.mixes = params['pis']
         self.LogRegr = models
@@ -558,7 +578,7 @@ class SupervisedGMM():
     def fitLogisticRegression(self, n_clusters, mTrain, adaR, alpha, max_iter,
                               tol2, Xtrain, ytrain, vb, penalty, scoring,
                               cv, regk, ind1, indexing, logiProb, logLogist,
-                              param_grid):
+                              param_grid, hard_cluster):
         
         """ FIT LOGISTIC REGRESSION FOR EACH CLUSTER 
             n_clusters: number of gaussians -- clusters
@@ -586,9 +606,12 @@ class SupervisedGMM():
                      logiProb--> probabilities of a data point to belong in 
                      in its class given the cluster
                      logLogist--> the same as above but log probabilities
+                     
+            hard_cluster: hard_cluster memebrships before the fit of
+                        logistic regressions
             """
             
-        
+        mTrain = self.hardCluster( mTrain.copy(), hard_cluster)
         models = []
         for clust in np.arange( n_clusters ): #FITLOG REGR
                 #FIT THE L1 LOGISTIC REGRESSION MODEL
@@ -733,7 +756,7 @@ class SupervisedGMM():
             logprobaMatrix2 = ( logprobaMatrix.T - maxLog).T
 
             
-            #### NEXT 4 LINES BEFORE THIS WILL BE DELETED IN FUTURE
+            #### NEXT 4 LINES BEFORE  WILL BE DELETED IN FUTURE
             probMat = np.exp( logprobaMatrix2 ) + regk
             sumRel = np.sum( probMat, axis = 1)
             probMat = (probMat.T / sumRel).T
@@ -910,11 +933,12 @@ class SupervisedGMM():
     def cCov(self, X, meank, memb, reg, Nk, mcov):
         
         """Given a data Matrix X, its weighted mean, the membership
-        vector, a regularization parameter and the weighted sample number
+        vector, a regularization parameter  the type of covariance, full or diagonal
+        and the weighted sample size
         calculates the weighted covariance matrix for gaussian k,
-        the type of covariance, full or diagonal
+       
         """
-        
+       
         if mcov is 'full':
             covk = (memb*( X - meank ).T)@ ( X - meank) \
                                                 + np.eye(X.shape[1])*reg
@@ -977,9 +1001,13 @@ class SupervisedGMM():
         totalProb = np.zeros( [X.shape[0]])
         for i in np.arange( memb.shape[1] ):
             #probability  points of X belong in class 1
-            totalProb += models[i].predict_proba( X )[:, 1]*memb[:, i]
+            model = models[i]
+            probModel = model.predict_proba( X )
+            proba = probModel[:, 1]
+           # totalProb += models[i].predict_proba( X )[:, 1]*memb[:, i]
+            totalProb += proba*memb[:, i]
         
-        return totalProb
+        return totalProb 
         
     
     def predict_GMMS( self, X):
@@ -1036,6 +1064,8 @@ class SupervisedGMM():
         weights = []
         for model in models:
             weight = model.best_estimator_.coef_.tolist()[0]
+            intercept = model.best_estimator_.intercept_[0]
+            weight.insert(0, intercept)
             weights.append( weight )
         
         self.weights = weights
@@ -1053,7 +1083,19 @@ class SupervisedGMM():
         self.pis = params['pis']
         return
         
-     
+    def hardCluster( self, mTrain, hard_cluster):
+        """takes the memeberships assigns 1 at the max element of each row
+         and 0 to all the other elements of the row
+        """
+        if hard_cluster:
+            mTrain2 = np.zeros_like( mTrain )
+            mTrain2[ np.arange(len(mTrain)), np.argmax( mTrain, axis = 1)] = 1
+            return mTrain2
+        
+        return mTrain
+            
+            
+            
 ##fitB UNDER CONSTRUCTION WORKING WITH BINARY DATA NOT SUFFICIENTLY TESTED              
     def fitB(self, Xtrain = None, ytrain = None, Xtest = None, ind1 = None,
                                                               ind2 = None):
