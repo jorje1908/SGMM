@@ -32,7 +32,7 @@ from  scipy.stats import multivariate_normal
 from sklearn.cluster import KMeans
 from cvxopt import matrix
 from cvxopt.solvers import qp
-#from sklearn.linear_model import LogisticRegressionCV
+from sklearn.linear_model import LogisticRegression
 
 ####THIS CODE HAS NUMERICAL ISSUES AT THE SPARCS DATASET
 
@@ -44,14 +44,15 @@ class SupervisedGMM():
     """
     
     
-    def __init__(self, max_iter = 1000, cv = 5, mix = 0.5, Cs = [1000], 
+    def __init__(self, max_iter = 1000, cv = 5, mix = 0.5, 
+                 C = [1/0.001,1/0.01, 1/0.1, 1, 1/10, 1/1000, 1/10000], 
                  alpha = [ 0.001, 0.01, 0.1, 1, 10, 100, 1000, 10000 ],
                  max_iter2 = 10, penalty = 'l1', scoring = 'neg_log_loss',
                  solver = 'saga', n_clusters = 2, tol = 10**(-3 ) , 
                  mcov = 'diag', tol2 = 10**(-3), transduction = 1, adaR = 1,
                  verbose = 1, warm = 0, m_sparse = 0, m_sparseL = 10**(-3),
                  m_sp_it1 = 2, m_sp_it2 = 2, m_choice = 0, 
-                 m_LR = 0.001, m_mix = 1, altern = 1):
+                 m_LR = 0.001, m_mix = 1, altern = 1, log_reg = 'LG'):
         
         
         
@@ -61,8 +62,8 @@ class SupervisedGMM():
             cv:[INT] Cross Validation: Default 5 Fold
             mix:{FLOAT] In what Percentages to Upadate Memberships in respect with
             the previous iteration: Def --> 0.5
-            Cs: [LIST] Inverse of Regularization Parameter: DEF: 1000
-            (not used any more )
+            C: [LIST] Inverse of Regularization Parameter: DEF: 1000
+           
             alpha:[LIST] regularization parameters, for the stochastic 
             gradient descend cross validation
             max_iter2: Maximum # of EM Iterations, DEF: 10 
@@ -96,8 +97,11 @@ class SupervisedGMM():
             altern: [BINARY] start using  prediction driven approach when
                             memberships have converged with just mixture models
             
-                
+            log_reg: [STRING], "SGD" stochastic gradient descend,
+                               "LG" Logistic Regression
             
+                
+    
         """
         ######################################################################
         # CLASS ATTRIBUTES
@@ -118,7 +122,7 @@ class SupervisedGMM():
         #Mixing Coefficient
         self._mix = mix
         #NOT USED ANY MORE
-        self._Cs = Cs
+        self._C = C
         #List with regularization parameters for cross validation
         self._alpha = alpha
         #Nuber of iterations of the EM algorithm
@@ -153,8 +157,8 @@ class SupervisedGMM():
         self._m_choice = m_choice 
         self._m_LR =  m_LR
         self._m_mix = m_mix
-        
         self._altern = altern
+        self._log_reg = log_reg
         
         #FOR FIT INITIALIZE WITH KMEANS THE MEMBERSHIPS
         self._KMeans = None
@@ -312,7 +316,7 @@ class SupervisedGMM():
         #solver = self._solver
         max_iter2 = self._max_iter2
         trans = self._trans
-        #Cs = self._Cs
+        C = self._C
         alpha = self._alpha
         tol = self._tol
         tol2 = self._tol2
@@ -321,6 +325,7 @@ class SupervisedGMM():
         vb = self._vb
         warm = self._warm
         altern = self._altern
+        lg_regr = self._log_reg
         
         dimXtrain = Xtrain.shape[0]
         dimXtest = 0
@@ -370,7 +375,11 @@ class SupervisedGMM():
         ###START FITTING ALGORITHM ##################
        
         #setting the cross validation grid
-        param_grid = {'alpha': alpha}
+        if lg_regr is 'SGD':
+            param_grid = {'alpha': alpha}
+        else:
+            param_grid = {'C':  C}
+            
         Qold = 0 #initial likelihood (if we are to calculate it)
         
         #STARTING EM ALGORITHM
@@ -381,7 +390,8 @@ class SupervisedGMM():
                               n_clusters, mTrain, adaR, alpha, max_iter,
                               tol2, Xtrain, ytrain, vb, penalty, scoring,
                               cv, regk, ind1, indexing, logiProb, logLogist, 
-                              param_grid, hard_cluster = hard_cluster )
+                              param_grid,  lg_regr, C,
+                                              hard_cluster = hard_cluster )
                 
             else: #IF WE USE SIMPLE MIXTURES OF GAUSSIANS JUST FIT AT LAST ITER
                 if iter2 == ( max_iter2 - 1):
@@ -389,7 +399,7 @@ class SupervisedGMM():
                               n_clusters, mTrain, adaR, alpha, max_iter,
                               tol2, Xtrain, ytrain, vb, penalty, scoring,
                               cv, regk, ind1, indexing, logiProb, logLogist, 
-                              param_grid, hard_cluster = hard_cluster )
+                              param_grid, lg_regr, C,  hard_cluster = hard_cluster )
                     
             #WE TAKE THE MEMBERSHIPS AND ALL THE DATA
             #TO FIT THE GAUSSIANS USING THE EM ALGORITHM FOR GMM 
@@ -479,7 +489,8 @@ class SupervisedGMM():
                               n_clusters, mTrain, adaR, alpha, max_iter,
                               tol2, Xtrain, ytrain, vb, penalty, scoring,
                               cv, regk, ind1, indexing, logiProb, logLogist, 
-                              param_grid, hard_cluster = hard_cluster )
+                              param_grid, lg_regr, C,
+                                                  hard_cluster = hard_cluster )
         
         self.Gmms = params['Gmms']
         self.mixes = params['pis']
@@ -578,7 +589,7 @@ class SupervisedGMM():
     def fitLogisticRegression(self, n_clusters, mTrain, adaR, alpha, max_iter,
                               tol2, Xtrain, ytrain, vb, penalty, scoring,
                               cv, regk, ind1, indexing, logiProb, logLogist,
-                              param_grid, hard_cluster):
+                              param_grid, lg_regr, C,  hard_cluster):
         
         """ FIT LOGISTIC REGRESSION FOR EACH CLUSTER 
             n_clusters: number of gaussians -- clusters
@@ -601,14 +612,17 @@ class SupervisedGMM():
             logiProb: an initialized matrix to put the logistic regression
             probabilities
             logLogist: an initialized matrix to put the log probabilities
+            lg_regr: Choice of SGD or FULL Logistic Regression
+            C: regularization for logistic regression
+            hard_cluster: hard_cluster memebrships before the fit of
+                        logistic regressions
             
             returns: models-> logistic regresion models
                      logiProb--> probabilities of a data point to belong in 
                      in its class given the cluster
                      logLogist--> the same as above but log probabilities
                      
-            hard_cluster: hard_cluster memebrships before the fit of
-                        logistic regressions
+           
             """
             
         mTrain = self.hardCluster( mTrain.copy(), hard_cluster)
@@ -620,10 +634,15 @@ class SupervisedGMM():
                 #ADAPTIVE REGULARIZATION
                 Nclus = np.sum( mTrain[:, clust], axis = 0 )
                 if adaR == 1:
-                    alphanew = (np.array( alpha ) / Nclus).tolist()
-                    param_grid = {'alpha': alphanew}
+                    if lg_regr is 'SGD':
+                        alphanew = (np.array( alpha ) / Nclus).tolist()
+                        param_grid = {'alpha': alphanew}
+                    else:
+                        
+                        Cnew = (np.array( C ) / Nclus ).tolist()
+                        param_grid = {'C': Cnew}
                 # PRINT SOME INFORMATION  
-                if vb == 0:
+                if vb == 1:
                     #print Cluster Size
                     print('\n Cluster {} has Size {} of {}'.format( clust,
                           Nclus, mTrain.shape[0]))
@@ -631,11 +650,17 @@ class SupervisedGMM():
                         print('alpha is {} alphaNew {}'.format(alpha, alphanew))
        
                 #TRAIN LOGISTIC REGRESSION MODEL
-                sgd = SGDClassifier(loss = "log", penalty = penalty, 
+                if lg_regr is 'SGD':
+                    mf = SGDClassifier(loss = "log", penalty = penalty, 
                                       n_jobs = -1, max_iter = max_iter,
                                       random_state = 0, tol = tol2)
+                else:
                 
-                model = GridSearchCV( sgd, param_grid = param_grid, 
+                    mf = LogisticRegression( penalty = penalty, tol = tol2,
+                                             random_state = 0, 
+                                        max_iter = max_iter, n_jobs = -1)
+                 
+                model = GridSearchCV( mf, param_grid = param_grid, 
                                   n_jobs = -1, 
                                   scoring = scoring, cv = cv).\
                                   fit(Xtrain, ytrain,

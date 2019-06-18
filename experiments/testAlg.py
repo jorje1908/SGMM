@@ -31,6 +31,8 @@ from sklearn.linear_model import  SGDClassifier
 from sklearn.model_selection import GridSearchCV
 from sklearn.mixture import GaussianMixture
 
+from LKEXPfunc import validateLogRegr
+
 
 np.random.seed( seed = 0)
 
@@ -39,9 +41,9 @@ np.random.seed( seed = 0)
 p1, p2 = 0.5, 0.5
 mF, mS = 0, 4
 m1, m2, m3 , m4 = mF, mS, mF, mS
-covG = 1.5
+covG = 1.0
 cov1, cov2, cov3, cov4 =covG, covG, covG, covG
-enhance = 1000
+enhance = 3
 w1 = np.array([0, 1])*enhance
 w2 = np.array([-4, 1])*enhance
 
@@ -64,17 +66,20 @@ Ntest = 1000
 data =  genData1D(pis, meanX, covX,  meanY,  covY, w, N)
 dataTest =  genData1D(pis, meanX, covX,  meanY,  covY, w, Ntest)
 
+meansValidate, memb0, memb1, data0, data1 = validateLogRegr( data, sgd = 0 )
+
 #####################################INITIALIZE MODEL #########################
 adaR = 1
-alpha = [0.000000000000000000000000001]          
+alpha = [0.000000000000000000000000000001]      
+C = [100000000000000000000000000000000]    
 n_clusters = 2
-vrb = 1
+vrb = 0
 cv = 10
 scoring = 'neg_log_loss'
 mcov = 'full'
 penalty = 'l1'
-mx_it = 1000
-mx_it2 =  30
+mx_it = 10000
+mx_it2 =  20
 warm = 0
 km = 1
 mod = 1
@@ -90,6 +95,7 @@ m_sparse = 0
 altern = 0
 tol2 = 10**(-8)
 tol = 10**(-10)
+lg = 'LG'
 param_grid = {'alpha': alpha}
 
 #################    INITIALIZE THE MODEL   ##################################
@@ -99,7 +105,8 @@ model = SupervisedGMM(  n_clusters = n_clusters, max_iter2 = mx_it2, tol = tol,
                          cv = cv, warm = warm, tol2 = tol2 , mix = mix1,
                          m_sparse = m_sparse, m_sparseL = m_sparseL, m_LR = m_LR,
                          m_sp_it1 = m_sp_it1, m_sp_it2 = m_sp_it2, 
-                         m_choice = m_choice, altern = altern )
+                         m_choice = m_choice, altern = altern, C = C, 
+                         log_reg = lg )
 
 ###############################################################################
 #take X and Y
@@ -107,12 +114,12 @@ X, Y = data[:, 1],  data[:, 2]
 Xtest, ytest = dataTest[:, 1],  dataTest[:, 2]
 
 #FIT MODEL
-simple = 0 #simple gaussians or adaptive
+simple = 1 #simple gaussians or adaptive
 model = model.fit( Xtrain = np.expand_dims(X, axis = 1), Xtest = [], 
                                           ytrain = Y.astype(int), kmeans = km,
                                     ind2 = None, mod = mod , simple = simple,
                                                    comp_Lik = 0, memb_mix = memb_mix,
-                                                   hard_cluster = 1)
+                                                   hard_cluster = 0)
 
 modelG = GaussianMixture(n_components = 2, random_state = 0, init_params = 'kmeans')
 modelG = modelG.fit( X.reshape(-1,1) )
