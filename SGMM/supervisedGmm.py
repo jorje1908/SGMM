@@ -52,7 +52,7 @@ class SupervisedGMM():
                  mcov = 'diag', tol2 = 10**(-3), transduction = 1, adaR = 1,
                  verbose = 1, warm = 0, m_sparse = 0, m_sparseL = 10**(-3),
                  m_sp_it1 = 2, m_sp_it2 = 2, m_choice = 0, 
-                 m_LR = 0.001, m_mix = 1, altern = 1, log_reg = 'LG'):
+                 m_LR = 0.001, m_mix = 1, altern = 0, log_reg = 'LG'):
         
         
         
@@ -258,7 +258,7 @@ class SupervisedGMM():
     def fit(self, Xtrain = None, ytrain = None, Xtest = None, ind1 = None,
                     ind2 = None, mTrain1 = None, mTest1 = None, 
                     kmeans = 1, mod = 1, simple = 0, comp_Lik = 0,
-                    memb_mix = 0.9, hard_cluster = 0):
+                    memb_mix = 0.3, hard_cluster = 0):
         """ 
             Fit the Supervised Mixtures of Gaussian Model
             
