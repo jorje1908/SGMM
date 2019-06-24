@@ -647,7 +647,10 @@ class SupervisedGMM():
                     print('\n Cluster {} has Size {} of {}'.format( clust,
                           Nclus, mTrain.shape[0]))
                     if adaR == 1:
-                        print('alpha is {} alphaNew {}'.format(alpha, alphanew))
+                        if lg_regr is 'SGD':
+                            print('alpha is {} alphaNew {}'.format(alpha, alphanew))
+                        else:
+                            print('C is {} CNew {}'.format(C, Cnew))
        
                 #TRAIN LOGISTIC REGRESSION MODEL
                 if lg_regr is 'SGD':
