@@ -44,12 +44,12 @@ class SupervisedGMM():
     """
     
     
-    def __init__(self, max_iter = 1000, cv = 5, mix = 0.0, 
+    def __init__(self, max_iter = 1000, cv = 5, mix = 0.2, 
                  C = [1/0.001,1/0.01, 1/0.1, 1, 1/10, 1/1000, 1/10000], 
                  alpha = [ 0.001, 0.01, 0.1, 1, 10, 100, 1000, 10000 ],
                  max_iter2 = 10, penalty = 'l1', scoring = 'neg_log_loss',
                  solver = 'saga', n_clusters = 2, tol = 10**(-3 ) , 
-                 mcov = 'diag', tol2 = 10**(-3), transduction = 1, adaR = 1,
+                 mcov = 'diag', tol2 = 10**(-3), transduction = 1, adaR = 0,
                  verbose = 1, warm = 0, m_sparse = 0, m_sparseL = 10**(-3),
                  m_sp_it1 = 2, m_sp_it2 = 2, m_choice = 0, 
                  m_LR = 0.001, m_mix = 1, altern = 0, log_reg = 'LG'):
@@ -258,7 +258,7 @@ class SupervisedGMM():
     def fit(self, Xtrain = None, ytrain = None, Xtest = None, ind1 = None,
                     ind2 = None, mTrain1 = None, mTest1 = None, 
                     kmeans = 1, mod = 1, simple = 0, comp_Lik = 0,
-                    memb_mix = 0.1, hard_cluster = 0):
+                    memb_mix = 0.0, hard_cluster = 0):
         """ 
             Fit the Supervised Mixtures of Gaussian Model
             
