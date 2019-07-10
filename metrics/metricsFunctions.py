@@ -177,8 +177,12 @@ def optimalTau(probabilities, ylabels, returnAll = 0, mode = 0,
                     
                 else:
                     precision = TP/(TP + FP)
+                
+                try:
+                    recall = TP/ (TP + FN)
+                except:
+                    recall = 0
                     
-                recall = TP/ (TP + FN)
                 accuracy = (TP + TN)/(TP + TN + FP + FN)
                 
                 if (precision + recall) == 0:
