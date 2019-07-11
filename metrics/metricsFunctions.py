@@ -375,8 +375,12 @@ def metrics_cluster(models = None, ytrain = None, ytest = None,
                 probTest = models[cluster].predict_proba(Xtest[inCT])[:, 1]
                 
                 #calculate optimal tau based on F1
-                tau = optimalTau(probTrain, ytrain[inC])
-                    
+                try:
+                    tau = optimalTau(probTrain, ytrain[inC])
+                except:
+                    tau = 0.5
+                    print(" Warning tau setted to 0.5 due to error(s) \
+                          in <<optimalTau>> function" )
                 #CALCULATE METRICS : ACCURACY, RECALL, PRECISION ,
                 #BALANCED ACCURACY ETC
                 metTrain , _= calc_metrics(  custom_prob = probTrain, 
