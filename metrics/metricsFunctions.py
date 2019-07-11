@@ -139,7 +139,10 @@ def optimalTau(probabilities, ylabels, returnAll = 0, mode = 0,
          
             FP = len( np.where( ylabels1 == 0)[0] ) # AT THE BEGINNING FALSE POSITIVES ARE THE SAME AS NEGATIVEES IN THE SET
             precision = TP/(TP + FP)
-            recall = TP/ (TP + FN)
+            try:
+                recall = TP/ (TP + FN)
+            except:
+                recall = 0
             accuracy = (TP + TN)/(TP + FN + FP + TN)
             
 #            print(precision, recall, TP, FN, FP)
