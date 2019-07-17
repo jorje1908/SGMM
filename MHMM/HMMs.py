@@ -21,6 +21,17 @@ Gaussians Model,
 import numpy as np
 from scipy.stats import multivariate_normal
 
+#########     check functions   #########
+def checkShape(  arg1, arg2, name):
+        
+    if arg1.shape != arg2.shape:
+        print( "Warning shapes does not match in " + name)
+        
+        
+    return
+
+
+
 class HMM(object):
     """ Helper HMM class """
     
@@ -350,30 +361,144 @@ class HMM(object):
         """
         
         K = self.states_
+        L = self.g_components_
+        
+        #feature dimension
+        d = X.shape[1]
+       
         #initializing attributes needed
         
+        #sum  of initial state distributions
+        #for all the K states
         self.pi_Sum = np.zeros( shape = [K] )
+        
+        #sum of all rm_i's
         self.rm_Sum = np.sum(r_m)
+        
+        #nominator for state transition probabilities
         self.A_nom = np.zeros( shape = [K,K] )
+        
+        #A denominator is the same as alpha denominator
         self.A_den = np.zeros( shape = [K] )
-        self.g
+        
+        #alpha_Nom is the same as means denominator
+        #and covarinaces denominator
+        #priors of the Gaussian components
+        self.alpha_Nom = np.zeros( shape = [K, L] )
+        
+        #nominator of the means
+        self.means_Nom = np.zeros( shape = [K, L, d])
+        #nominator of the covariances #need to subtract means
+        self.cov_Nom = np.zeros( shape = [K, L, d, d] )
         
         for i in np.arange( len(X) ):
             #get the ith observation
             x_i = X[i]
-            #get the gammas for the i_th observation
+            #get the gammas for the i_th observation KXT
             gamma_i = self.gamas( x_i )
-            #get xis for the i_th observation
+            #get xis for the i_th observation KXKX(T-1)
             xis_i = self.sliced( x_i )
-            #get the rm_i
+            #get the rm_i,  N 
             rm_i = r_m[i]
-            #get g_is for the ith observation
+            #get g_is for the ith observation KxLXT
             g_i = self.gs( x_i )
             
             #update sum of pis
             self.update_pi( gamma_i[:, 0], rm_i )
             #update A matrix nominator and denominator
             self.update_A( xis_i, gamma_i, rm_i )
+            #update alphas
+            membs_i=self.update_alpha( rm_i, gamma_i, g_i)
+            
+            self.update_means_cov( x_i, membs_i)
+            
+        
+    def setEm_updates(self ) :
+        """
+        sets the new parameters of the HMM
+        after one EM iteration
+        
+        pi K initial state distribution
+        A KXK  state transition matrix
+        alpha KXL gaussian priors
+        means KxLxd means of the Gaussians
+        cov KxLxdxd covarinaces of the Gaussians
+        
+        """
+        #set pi
+        self.pi = self.pi_Sum
+        #set A
+        self.A = ((self.A_nom).T/self.A_den).T
+        #set alpha
+        self.alpha = ((self.alpha_Nom).T/self.A_den).T
+        #set means
+        self.set_means()
+        #set_covariances
+        self.set_covs()
+        #set gauss
+        self.set_gauss()
+        
+    def set_means( self ):
+        """
+        set the means after the EM update
+        meaning--> after finding means_Nom
+        also prepares the covarinaces fortheir calculation in the next step
+        of setEm_updates
+        
+        """
+        
+        K = self.alpha_Nom.shape[0]
+        L = self.alpha_Nom.shape[1]
+        
+        for k in np.arange( K ):
+            self.means[k, :, :] = ((self.means_Nom[k, :, :]).T \
+                                                    /self.alpha_Nom[k,:]).T
+            for l in np.arange( L ):
+                self.cov_Nom[k, l, :, :] = self.cov_Nom[k,l, :, :] \
+                                                    /self.alpha_Nom[k,l]
+        return
+                      
+    def set_covs( self ):
+        """
+        setting covariances 
+        
+        """
+        
+        K = self.alpha_Nom.shape[0]
+        L = self.alpha_Nom.shape[1]
+        
+        for k in np.arange( K ):
+            for l in np.arange( L ):
+                meanKL = np.expand_dims( self.means[k,l,:], axis = 1).copy()
+                self.cov[k, l, :, :] = self.cov_Nom[k,l,:,:] - meanKL@meanKL.T
+            
+        return
+    
+    def set_gauss( self ):
+        """
+        after having compute means and covariances on the EM step
+        setting the gaussian objects
+        
+        """
+        
+        K = self.means.shape[0]
+        L = self.means.shape[1]
+        
+        gaussStates = []
+        for k in np.arange(K):
+            gaussComponents = []
+            for l in np.arange(L):
+                gaussComponents.append( 
+                        multivariate_normal(mean = self.means[k,l,:],
+                                            cov = self.cov[k,l,:,:]) )
+            gaussStates.append( gaussComponents )
+            
+        self.gauss = gaussStates
+        return
+                
+            
+            
+        
             
             
         
@@ -381,6 +506,8 @@ class HMM(object):
         """ 
         updates the initial state parameter probabilities
         for all the states
+        for the EM iteration
+        given the values currently governed in the model
         p(z_1 = k|H = m)
         
         self.pi_Sum ---> the value to update
@@ -388,7 +515,7 @@ class HMM(object):
         USED IN EM_iter method
         """
         
-        self.checkShape( self.pi_Sum, gi1, 'update_pi')
+        checkShape( self.pi_Sum, gi1, 'update_pi')
         self.pi_Sum += gi1*rm_i / (self.rm_Sum)
         
         return
@@ -396,10 +523,12 @@ class HMM(object):
         
     def update_A(self, xis_i, gamma_i,  rm_i):
         """
-        updates the sum of 
+        updates the sum of for the EM iteration
+        given the values currently governed in the model
         self.A_nom
         self.A_den
         
+        Aij = p(z_t = j| z_(t-1) = i)
         """
         self.A_nom += np.sum( xis_i, axis = 2)*rm_i
         self.A_den += np.sum( gamma_i, axis = 1)*rm_i
@@ -408,50 +537,73 @@ class HMM(object):
         
         
         
-    def update_alpha(self, X_i):
-        pass
-    
-    def update_pi_part(self):
-        pass
-    
-    
-    
-    
-    def update_alpha_part(self):
-        pass
-    
-    
-    
-    
-    
-    def update_A_part(self, X_i):
-        pass
-    
-    
-    def update_means(self, X_i):
-        pass
-    
-    def update_means_part(self, X_i):
-        pass
-    
-    def update_cov(self, X_i):
-        pass
-    
-    def update_cov_part(self, X_i):
-        pass
-    
-    
-    
-    
-    
-    #########     check functions   #########
-    def checkShape( self, arg1, arg2, name):
+    def update_alpha(self, g_i, gamma_i, rm_i):
+        """
+        updates the mixing gaussian coefficients for each state
+        p(G_t = l| z_t = k) = prior probability for the lth component 
+        of k state
         
-        if arg1.shape != arg2.shape:
-            print( "Warning shapes does not match in " + name)
+        this eventually will be a matrix KxL
         
+        g_i KXLXT
+        gamma_i KxT
+        rm_i = scalar
         
+        """
+        #get the number of states K
+        K  = g_i.shape[0]
+        L = g_i.shape[1]
+        T = g_i.shape[2]
+        
+        #holding the memberships for the T samples of i observation
+        # of L compunents of K states
+        memb_i = np.zeros( shape = [K, L, T])
+        #for each state compute the priors for the lth components
+        for k in np.arange( K ):
+            memb_i[k, :, :] =  g_i[k, :,:]*gamma_i[k, :]
+            self.alpha_Nom[k, :] += np.sum(memb_i[k,:,:], axis = 1)
+        
+        self.alpha_Nom *= rm_i
+        memb_i *= rm_i
+        
+        return memb_i
+    
+    
+    def update_means_cov(self, X_i,  membs_i):
+        """
+        Updates the nominator  of the mean 
+        vectors of the Gaussians and partially updates the nominator
+        of of the covarinace matrices
+        
+        means_Nom KXLXd
+        cov_Nom KXLXdXd
+        
+        X_i ith observation TXd
+        membs_i memberships of the samples of observation x_i KXLXT
+        
+        """
+        K = membs_i.shape[0]
+        L = membs_i.shape[1]
+       
+        
+        for k in np.arange(K):
+            for l in np.arange( L ):
+                X_iw = membs_i[k, l, :]*X_i.T #dxT
+                self.means_Nom[k, l, :] += np.sum( X_iw, axis = 0)
+                self.cov_Nom[k, l, :, :] +=  X_iw @ X_i #dxd sum on all T
+                
         return
+    
+    
+    
+    
+   
+    
+    
+    
+    
+    
+   
         
     
     
@@ -483,3 +635,8 @@ class HMM(object):
 
 class MHMM(object):
     pass
+
+
+
+
+

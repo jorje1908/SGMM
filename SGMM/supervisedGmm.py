@@ -45,7 +45,7 @@ class SupervisedGMM():
     
     
     def __init__(self, max_iter = 1000, cv = 5, mix = 0.2, 
-                 C = [1/0.001,1/0.01, 1/0.1, 1, 1/10, 1/1000, 1/10000], 
+                 C = [1/0.001, 1/0.01, 1/0.1, 1, 1/10, 1/1000, 1/10000], 
                  alpha = [ 0.001, 0.01, 0.1, 1, 10, 100, 1000, 10000 ],
                  max_iter2 = 10, penalty = 'l1', scoring = 'neg_log_loss',
                  solver = 'saga', n_clusters = 2, tol = 10**(-3 ) , 
@@ -1122,7 +1122,20 @@ class SupervisedGMM():
         
         return mTrain
             
-            
+    
+
+
+
+
+
+
+
+##################   BERNULLI  STARTS UNDER HERE    #############################
+
+
+
+
+        
             
 ##fitB UNDER CONSTRUCTION WORKING WITH BINARY DATA NOT SUFFICIENTLY TESTED              
     def fitB(self, Xtrain = None, ytrain = None, Xtest = None, ind1 = None,
