@@ -49,7 +49,7 @@ class SupervisedGMM():
                  alpha = [ 0.001, 0.01, 0.1, 1, 10, 100, 1000, 10000 ],
                  max_iter2 = 10, penalty = 'l1', scoring = 'neg_log_loss',
                  solver = 'saga', n_clusters = 2, tol = 10**(-3 ) , 
-                 mcov = 'diag', tol2 = 10**(-3), transduction = 1, adaR = 0,
+                 mcov = 'diag', tol2 = 10**(-3), transduction = 0, adaR = 0,
                  verbose = 1, warm = 0, m_sparse = 0, m_sparseL = 10**(-3),
                  m_sp_it1 = 2, m_sp_it2 = 2, m_choice = 0, 
                  m_LR = 0.001, m_mix = 1, altern = 0, log_reg = 'LG'):
@@ -375,7 +375,7 @@ class SupervisedGMM():
         ###START FITTING ALGORITHM ##################
        
         #setting the cross validation grid
-        if lg_regr is 'SGD':
+        if lg_regr == 'SGD':
             param_grid = {'alpha': alpha}
         else:
             param_grid = {'C':  C}
@@ -634,7 +634,7 @@ class SupervisedGMM():
                 #ADAPTIVE REGULARIZATION
                 Nclus = np.sum( mTrain[:, clust], axis = 0 )
                 if adaR == 1:
-                    if lg_regr is 'SGD':
+                    if lg_regr == 'SGD':
                         alphanew = (np.array( alpha ) / Nclus).tolist()
                         param_grid = {'alpha': alphanew}
                     else:
@@ -647,13 +647,13 @@ class SupervisedGMM():
                     print('\n Cluster {} has Size {} of {}'.format( clust,
                           Nclus, mTrain.shape[0]))
                     if adaR == 1:
-                        if lg_regr is 'SGD':
+                        if lg_regr == 'SGD':
                             print('alpha is {} alphaNew {}'.format(alpha, alphanew))
                         else:
                             print('C is {} CNew {}'.format(C, Cnew))
        
                 #TRAIN LOGISTIC REGRESSION MODEL
-                if lg_regr is 'SGD':
+                if lg_regr == 'SGD':
                     mf = SGDClassifier(loss = "log", penalty = penalty, 
                                       n_jobs = -1, max_iter = max_iter,
                                       random_state = 0, tol = tol2)
@@ -967,7 +967,7 @@ class SupervisedGMM():
        
         """
        
-        if mcov is 'full':
+        if mcov == 'full':
             covk = (memb*( X - meank ).T)@ ( X - meank) \
                                                 + np.eye(X.shape[1])*reg
         else:#diagonal covariance

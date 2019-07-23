@@ -31,7 +31,20 @@ def checkShape(  arg1, arg2, name):
         
     return
 
-
+def checkSum_one( matrix, axis):
+    """
+    Checks if the matrix entries along the given axis
+    sum to 1
+    """
+    
+    result = matrix.sum( axis = axis ).round(5)
+    value = np.all( result == 1 )
+    
+    
+    if not value:
+        print(" Warning: Elements do not sum to 1 ")
+        
+    return
 
 class HMM(object):
     """  
@@ -74,7 +87,7 @@ class HMM(object):
     
     
     def __init__(self, states = 2, g_components = 2, t_cov = "diag", 
-                 gmm_init = 'Kmeans', kmean_Points = 1000):
+                 gmm_init = 'Kmeans', kmean_Points = 1000, idi = None):
         
         #setting covariance type attribute
         self.t_cov = t_cov
@@ -106,6 +119,8 @@ class HMM(object):
         self.kmean_Points = kmean_Points
         #state of the model initialized or not
         self.initialized = False
+        #iD of the HMM
+        self.id = idi
         
         
     #ALGORITHMS OF HMM
@@ -294,10 +309,10 @@ class HMM(object):
         backw[:, T-1] = 1
         
         for t in np.arange( T-2, -1, -1):
-            
+            #A:KxK, self.predict_states KxT backw: KxT
             backw[:, t] = A.T@( self.predict_states( X[t+1])*backw[:,t+1])
             
-        return backw
+        return backw 
     
     #smoothing probabilities
     def gamas( self, X):
@@ -317,7 +332,7 @@ class HMM(object):
         """
         
         #regularization
-        reg = 10**( -6 )
+        reg = 10**( -6 ) #used if needed
         
         #run forward algorithm_
         forw = self.forward( X )
@@ -327,8 +342,9 @@ class HMM(object):
         gamma = forw*backw 
         gammaSumCol = np.sum( gamma, axis = 0)
         #calculate final gamma
-        gamma = gamma/( gammaSumCol + reg )
-        
+        gamma = (gamma/ gammaSumCol )  #KxT
+        #check the sum if it is 1 for each column
+        checkSum_one( gamma , axis = 0)
         return gamma
 
 
@@ -363,7 +379,9 @@ class HMM(object):
             xis[:, :, t] = (A.T*forw[:, t]).T*( Pkt[:, t+1]*backw[:, t+1] )
             xisSum = np.sum( xis[:, :, t])
             xis[:,:,t] = xis[:,:,t]/xisSum
-            
+        
+        #check if the sum on axis 0 and 1 sum to 1
+        checkSum_one( xis.sum( axis = 0 ), axis = 0)
         return xis
     
     #Gaussian Component Posterior
@@ -421,6 +439,8 @@ class HMM(object):
         sumPk = np.sum( pk, axis = 0)
         #normalize the pk matrix such that every column sums to 0
         pk = pk/sumPk
+        #checking if component wise they sum to 1 the gs
+        checkSum_one(pk, axis = 0)
         return pk
         
     #INITIALIZATIONS OF THE EM MODEL
@@ -430,6 +450,10 @@ class HMM(object):
         Initialize the HMM parameters
         
         """
+        idi = self.id
+        
+        print("Initializing the HMM with id:{}".format( idi ))
+        
         self.pi_init( pi )
         self.A_init( A )
         self.alpha_means_cov_init(X, alpha, means, cov )
@@ -456,6 +480,8 @@ class HMM(object):
             pi = pi/np.sum( pi )
             self.pi = pi
             
+            checkSum_one(self.pi, axis = 0)
+            
         return self
         
         
@@ -475,6 +501,8 @@ class HMM(object):
             Asum = np.sum ( A, axis = 1)
             A = A.T/Asum
             self.A = A.T
+            
+            checkSum_one(self.A, axis = 1)
         
         return self
             
@@ -535,10 +563,6 @@ class HMM(object):
         return self
             
         
-        
-        
-        
-    
     def kmeans_init(self,  X ):
         """
         it is used from 
@@ -585,6 +609,8 @@ class HMM(object):
             alphaL[l] = indxl/N_x
         
         self.alpha[:] = alphaL
+        #checking sum of alphas on axis 1 KxL
+        checkSum_one(self.alpha, axis = 1)
         
         #initialize Covarinaces
         self.cov[:,:] = np.eye( d )
@@ -632,10 +658,9 @@ class HMM(object):
         
         return X_kmeans
         
-        
-        
+           
     #EM UPDATE    
-    def EM_iter(self, X, r_m, pi = None, A = None,
+    def EM_iter(self, X, r_m,  pi = None, A = None,
                 alpha = None, means = None, cov = None):
         """ 
         
@@ -659,8 +684,12 @@ class HMM(object):
         X
         
         """
+        
         #initialize EM if it is not initialized 
         if not self.initialized:
+            print("Initialization in the EM_iter for HMM with id:{}".
+                                                      format(self.id))
+            
             self.EM_init(X, pi = pi, A = A, alpha = alpha, 
                                  means = means, cov = cov)
         
@@ -668,12 +697,13 @@ class HMM(object):
         L = self.g_components_
         
         #feature dimension
-        d = X.shape[1]
+        d = X.shape[2]
        
         #initializing attributes for the EM
         self.initialize_EM_sums( K, L, d,  r_m )
         
         for i in np.arange( len(X) ):
+            print("iteration {} of internal EM for {} HMM".format(i, self.id))
             #get the ith observation
             x_i = X[i]
             #get the gammas for the i_th observation KXT
@@ -690,7 +720,7 @@ class HMM(object):
             #update A matrix nominator and denominator
             self.update_A( xis_i, gamma_i, rm_i )
             #update alphas
-            membs_i=self.update_alpha( g_i, gamma_i, rm_i)
+            membs_i= self.update_alpha( g_i, gamma_i, rm_i)
             
             self.update_means_cov( x_i, membs_i)
         
@@ -727,6 +757,7 @@ class HMM(object):
         #and covarinaces denominator
         #priors of the Gaussian components
         self.alpha_Nom = np.zeros( shape = [K, L] )
+        self.alpha_Den = np.zeros( shape = [K])
         
         #nominator of the means
         self.means_Nom = np.zeros( shape = [K, L, d])
@@ -750,9 +781,8 @@ class HMM(object):
         USED IN EM_iter method
         """
         
-        checkShape( self.pi_Sum, gi1, 'update_pi')
         self.pi_Sum += gi1*rm_i 
-        
+        checkSum_one(gi1, axis = 0)
         return
         
         
@@ -764,10 +794,17 @@ class HMM(object):
         self.A_den
         
         Aij = p(z_t = j| z_(t-1) = i)
+        
+        xis_i = KxKxT-1
+        gamma_i = KxT
         """
         self.A_nom += np.sum( xis_i, axis = 2)*rm_i
-        self.A_den += np.sum( gamma_i, axis = 1)*rm_i
+        #self.A_den += np.sum( gamma_i, axis = 1)*rm_i
+        #self.A_den += np.sum(gamma_i[:, 0:-1], axis = 1)*rm_i
+        self.A_den +=  xis_i.sum( axis = 1).sum(axis = 1)*rm_i
         
+        print("Check gammas xis ")
+        print( xis_i.sum( axis = 1)[:,0], gamma_i[:,0])
         return 
         
         
@@ -795,11 +832,12 @@ class HMM(object):
         memb_i = np.zeros( shape = [K, L, T])
         #for each state compute the priors for the lth components
         for k in np.arange( K ):
-            memb_i[k, :, :] =  g_i[k, :,:]*gamma_i[k, :]
-            self.alpha_Nom[k, :] += np.sum( memb_i[k,:,:], axis = 1)
+            memb_i[k, :, :] =  g_i[k, :, :]*gamma_i[k, :]*rm_i
+            self.alpha_Nom[k, :] += memb_i[k,:,:].sum(axis = 1)
+            
         
-        self.alpha_Nom *= rm_i
-        memb_i *= rm_i
+        self.alpha_Den += rm_i*gamma_i.sum( axis = 1 )
+       
         
         return memb_i
     
@@ -823,9 +861,10 @@ class HMM(object):
         
         for k in np.arange(K):
             for l in np.arange( L ):
-                X_iw = membs_i[k, l, :]*X_i.T #dxT
-                self.means_Nom[k, l, :] += np.sum( X_iw, axis = 0)
-                self.cov_Nom[k, l, :, :] +=  X_iw @ X_i #dxd sum on all T
+                X_iw = membs_i[k, l, :]*(X_i.T) #dxT
+                self.means_Nom[k, l, :] += np.sum( X_iw, axis = 1)
+                self.cov_Nom[k, l, :, :] +=  (X_iw @ X_i) #dxd sum on all T
+               
                 
         return self
     
@@ -844,10 +883,16 @@ class HMM(object):
         """
         #set pi
         self.pi = self.pi_Sum/self.rm_Sum
+        print("check set pi")
+        checkSum_one( self.pi, axis = 0)
         #set A
         self.A = ((self.A_nom).T/self.A_den).T
+        print("check set A")
+        checkSum_one( self.A, axis = 1)
         #set alpha
-        self.alpha = ((self.alpha_Nom).T/self.A_den).T
+        self.alpha = ((self.alpha_Nom).T/self.alpha_Den).T
+        print("check set alpha")
+        checkSum_one( self.alpha, axis = 1)
         #set means
         self.set_means()
         #set_covariances
@@ -867,13 +912,22 @@ class HMM(object):
         K = self.alpha_Nom.shape[0]
         L = self.alpha_Nom.shape[1]
         
+       
         for k in np.arange( K ):
             self.means[k, :, :] = ((self.means_Nom[k, :, :]).T \
                                                     /self.alpha_Nom[k,:]).T
             for l in np.arange( L ):
-                self.cov_Nom[k, l, :, :] = self.cov_Nom[k,l, :, :] \
+                mN = self.means_Nom[k,l,:]
+                sN = self.cov_Nom[k,l,:]
+                mn2 = mN**2
+                w = self.alpha_Nom[k,l]
+                w2 = w**2
+                print( sN/w, mn2/w2)
+                self.cov_Nom[k, l, :, :] = self.cov_Nom[k, l, :, :] \
                                                     /self.alpha_Nom[k,l]
-        return
+                                                    
+               
+        return self
                       
     def set_covs( self ):
         """
@@ -887,9 +941,10 @@ class HMM(object):
         for k in np.arange( K ):
             for l in np.arange( L ):
                 meanKL = np.expand_dims( self.means[k,l,:], axis = 1).copy()
-                self.cov[k, l, :, :] = self.cov_Nom[k,l,:,:] - meanKL@meanKL.T
-            
-        return
+                self.cov[k, l, :, :] = self.cov_Nom[k,l,:,:] - meanKL@(meanKL.T)
+                print(self.id, self.cov[k,l,:,:], self.cov_Nom[k,l,:,:], meanKL)
+                
+        return self
     
     def set_gauss( self ):
         """
@@ -905,6 +960,7 @@ class HMM(object):
         for k in np.arange(K):
             gaussComponents = []
             for l in np.arange(L):
+                
                 gaussComponents.append( 
                         multivariate_normal(mean = self.means[k,l,:],
                                             cov = self.cov[k,l,:,:]) )
@@ -972,7 +1028,7 @@ class MHMM():
         
         for m in np.arange( M ):
             self.HMMS.append( HMM( states = states, g_components = n_Comp,
-                                  t_cov = t_cov, gmm_init = gmm_init))
+                                  t_cov = t_cov, gmm_init = gmm_init, idi = m))
             
         self.HMM_init = True
             
@@ -1027,8 +1083,8 @@ class MHMM():
         if data is None:
             print("Error no data to fit")
             return
-        #number of HMMs
-       
+        
+        #number of HMM iterations
         em_iter = self.Em_iter
         
         #initialize EM algorithm
@@ -1038,6 +1094,7 @@ class MHMM():
                 means = None, cov = None)
         
         for iter1 in  np.arange( em_iter ):
+            print("Iteration {} of EM".format( iter1 ))
             self.EM_update( data  )
             self.convergenceMonitor(data, iter1)
             
@@ -1056,11 +1113,14 @@ class MHMM():
         #take the number of HMMs
         M = self.n_HMMS
         R = self.posterior_All( X )
-        self.update_mix( R)
+        print("Checking R")
+        #update the mixing parameters
+        self.update_mix(R)
         
         for m in np.arange( M ):
+            print("Training the {}th HMM".format(m))
             hmm_m = self.HMMS[m]
-            hmm_m.EM_iter(X, R[:,m] )
+            hmm_m.EM_iter(X, R[:, m] )
             
         return self
         
@@ -1156,8 +1216,9 @@ class MHMM():
         i = iteration
         for n in np.arange( N ):
             self.logLikehood[i] += np.log( self.predict_proba( data[n] ))
-            
-        lgi = self.logLikehood[i]
+        
+        self.logLikehood[i]  = self.logLikehood[i]/N
+        lgi = self.logLikehood[i]/N
         
         print("Iteration: {} LogLikelihood:{}".format( i, lgi ))
         
