@@ -703,7 +703,7 @@ class HMM(object):
         self.initialize_EM_sums( K, L, d,  r_m )
         
         for i in np.arange( len(X) ):
-            print("iteration {} of internal EM for {} HMM".format(i, self.id))
+#            print("iteration {} of internal EM for {} HMM".format(i, self.id))
             #get the ith observation
             x_i = X[i]
             #get the gammas for the i_th observation KXT
@@ -803,8 +803,8 @@ class HMM(object):
         #self.A_den += np.sum(gamma_i[:, 0:-1], axis = 1)*rm_i
         self.A_den +=  xis_i.sum( axis = 1).sum(axis = 1)*rm_i
         
-        print("Check gammas xis ")
-        print( xis_i.sum( axis = 1)[:,0], gamma_i[:,0])
+#        print("Check gammas xis ")
+#        print( xis_i.sum( axis = 1)[:,0], gamma_i[:,0])
         return 
         
         
@@ -917,12 +917,12 @@ class HMM(object):
             self.means[k, :, :] = ((self.means_Nom[k, :, :]).T \
                                                     /self.alpha_Nom[k,:]).T
             for l in np.arange( L ):
-                mN = self.means_Nom[k,l,:]
-                sN = self.cov_Nom[k,l,:]
-                mn2 = mN**2
-                w = self.alpha_Nom[k,l]
-                w2 = w**2
-                print( sN/w, mn2/w2)
+#                mN = self.means_Nom[k,l,:]
+#                sN = self.cov_Nom[k,l,:]
+#                mn2 = mN**2
+#               w = self.alpha_Nom[k,l]
+#                w2 = w**2
+#                print( sN/w, mn2/w2)
                 self.cov_Nom[k, l, :, :] = self.cov_Nom[k, l, :, :] \
                                                     /self.alpha_Nom[k,l]
                                                     
@@ -934,15 +934,16 @@ class HMM(object):
         setting covariances 
         
         """
-        
+        reg = 10**(-3)
         K = self.alpha_Nom.shape[0]
         L = self.alpha_Nom.shape[1]
         
         for k in np.arange( K ):
             for l in np.arange( L ):
                 meanKL = np.expand_dims( self.means[k,l,:], axis = 1).copy()
-                self.cov[k, l, :, :] = self.cov_Nom[k,l,:,:] - meanKL@(meanKL.T)
-                print(self.id, self.cov[k,l,:,:], self.cov_Nom[k,l,:,:], meanKL)
+                self.cov[k, l, :, :] = self.cov_Nom[k,l,:,:] \
+                - meanKL@(meanKL.T) + reg*np.eye( self.cov.shape[2])
+#                print(self.id, self.cov[k,l,:,:], self.cov_Nom[k,l,:,:], meanKL)
                 
         return self
     
@@ -1218,9 +1219,9 @@ class MHMM():
             self.logLikehood[i] += np.log( self.predict_proba( data[n] ))
         
         self.logLikehood[i]  = self.logLikehood[i]/N
-        lgi = self.logLikehood[i]/N
+        lgi = self.logLikehood[i]
         
-        print("Iteration: {} LogLikelihood:{}".format( i, lgi ))
+        print("Iteration: {} LogLikelihood:{:.2}".format( i, lgi ))
         
         return self
         
