@@ -26,7 +26,7 @@ salesNorm3d = np.expand_dims( salesNorm, axis = 2)
 
 #initialize MHMM
 
-model = MHMM(n_states = 4, EM_iter = 40)
+model = MHMM(n_HMMS = 1, n_states = 10, EM_iter = 40, tol = 10**(-3))
 start = time.time()
 model = model.fit( data = salesNorm3d )
 end = time.time() - start
@@ -35,8 +35,4 @@ logLi = model.logLikehood
 print("time elapsed: {:.4}".format(end))
 
 #hmms
-hmms = model.HMMS
-gamma1 = hmms[1].gamas(salesNorm[2])
-xisSum1 = hmms[1].sliced( salesNorm[2]).sum( axis = 1)
-gamma0 = hmms[0].gamas(salesNorm[2])
-xisSum0 = hmms[0].sliced( salesNorm[2]).sum( axis = 1)
+params = model.get_params()

@@ -970,6 +970,24 @@ class HMM(object):
         self.gauss = gaussStates
         
         return self
+    
+    
+    def get_params( self ):
+        """
+        Getting the parameteres of the HMM
+        
+        """
+        
+        alpha = self.alpha
+        A = self.A
+        cov = self.cov
+        means = self.means
+        pi = self.pi
+        
+        params = {'alpha':alpha, 'A': A, 'cov': cov, 'means': means,
+                  'pi':pi}
+        
+        return params
                 
     
          
@@ -985,7 +1003,7 @@ class MHMM():
     """
     
     def __init__(self, n_HMMS = 2, n_states = 2, n_Comp = 2, EM_iter = 10,
-                 t_cov = 'diag', gmm_init = 'Kmeans'):
+                 t_cov = 'diag', gmm_init = 'Kmeans', tol = 10**(-3)):
         
         self.gmm_init = 'Kmeans'
         #setting number of states per HMM
@@ -1008,6 +1026,8 @@ class MHMM():
         #logLikelihood matrix for concergence
         self.logLikehood = np.zeros( self.Em_iter )
         self.initialized = False
+        #tolerance in likelihood
+        self._tol = tol
         
         
         
@@ -1097,7 +1117,9 @@ class MHMM():
         for iter1 in  np.arange( em_iter ):
             print("Iteration {} of EM".format( iter1 ))
             self.EM_update( data  )
-            self.convergenceMonitor(data, iter1)
+            
+            if self.convergenceMonitor(data, iter1) :
+                break
             
         return self
         
@@ -1206,15 +1228,33 @@ class MHMM():
         
         return R
     
+    def get_params( self ):
+        """
+        Gets the Parameteres of The individual HMMs
+        
+        """
+        M = self.n_HMMS
+        
+        params = []
+        mix = self.mix
+        
+        for m in np.arange( M ):
+            params.append(self.HMMS[m].get_params())
+            
+        params_All = {'mix':mix, 'params':params}
+        
+        return params_All
+    
     def convergenceMonitor(self, data, iteration):
         """
         Computes the Log Likelihood of the Data under the model
         and updates the Loglikelihood matrix
         
         """
-        
+        break_condition = False
         N = data.shape[0]
         i = iteration
+        tol = self._tol
         for n in np.arange( N ):
             self.logLikehood[i] += np.log( self.predict_proba( data[n] ))
         
@@ -1223,7 +1263,16 @@ class MHMM():
         
         print("Iteration: {} LogLikelihood:{:.2}".format( i, lgi ))
         
-        return self
+        if i > 0:
+            diff = np.abs( self.logLikehood[i] - self.logLikehood[i-1])
+        else:
+            diff = 1000
+            
+        if diff < tol:
+            break_condition = True
+            print("Convergence Criteria has been met")
+            
+        return break_condition
         
         
    
