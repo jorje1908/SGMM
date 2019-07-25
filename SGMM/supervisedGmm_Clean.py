@@ -25,13 +25,10 @@ warnings.warn = warn
 warnings.filterwarnings("ignore", category=DeprecationWarning)
 
 import numpy as np
-from sklearn.model_selection import train_test_split
 from sklearn.linear_model import  SGDClassifier
 from sklearn.model_selection import GridSearchCV
 from  scipy.stats import multivariate_normal
 from sklearn.cluster import KMeans
-from cvxopt import matrix
-from cvxopt.solvers import qp
 from sklearn.linear_model import LogisticRegression
 
 ####THIS CODE HAS NUMERICAL ISSUES AT THE SPARCS DATASET
@@ -376,7 +373,8 @@ class SupervisedGMM():
             
             #set the models attribute after fitting the Logistic Regression
             #for all clusters
-            self.LogRegr = models
+            if simple == 0:
+                self.LogRegr = models
             
             #WE TAKE THE MEMBERSHIPS AND ALL THE DATA
             #TO FIT THE GAUSSIANS USING THE EM ALGORITHM FOR GMM 
@@ -456,8 +454,8 @@ class SupervisedGMM():
         
             ###### CDPHP MOUAD AND MATT ----> MONITOR IMPLEMENTATION #########
             
-            
-            self.monitor( Xtrain, ytrain,  iter2 )
+            if simple == 0:
+                self.monitor( Xtrain, ytrain,  iter2 )
             
             
             ##################################################################
@@ -642,7 +640,7 @@ class SupervisedGMM():
                 else:
                 
                     mf = LogisticRegression( penalty = penalty, tol = tol2,
-                                             random_state = 0, 
+                                             random_state = 0, solver = 'liblinear', 
                                         max_iter = max_iter, n_jobs = -1)
                  
                 model = GridSearchCV( mf, param_grid = param_grid, 
@@ -1005,7 +1003,7 @@ class SupervisedGMM():
         PT[:, 0, i] = proba
         PT[:, 1, i] = Y
         
-        self.monitor_['memb_3D'] = memb
+        self.monitor_['memb_3D'] = MT
         self.monitor_['prob2D'] = PT
         
         return self
