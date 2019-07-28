@@ -21,6 +21,8 @@ Gaussians Model,
 import numpy as np
 from scipy.stats import multivariate_normal
 from sklearn.cluster import KMeans
+from MHMM import _hmmh
+
 
 #########     check functions   #########
 def checkShape(  arg1, arg2, name):
@@ -140,7 +142,7 @@ class HMM(object):
         
         p(x_t | z_t = k, H = m) for all t for all k
         
-        P[k,t] = [K,T] matrix
+        P = [K,T] matrix
         
         """
         
@@ -230,7 +232,7 @@ class HMM(object):
          return pkl
      
     #forward algorithmm 
-    def forward(self, X):
+    def forward(self, X, p_states = None):
         """
         Implements the forward Algorithm, 
         Returns tha matrix forw [ a_1,... a_T ]
@@ -250,15 +252,36 @@ class HMM(object):
         #get transition matrix Aij = p(z(t) = j|z(t-1) = i)
         A = self.A
         #initialize forward matrix
-        forw = np.zeros( shape = [K, T])
+        forw = np.zeros( shape = [K, T], dtype = np.double)
         
         #take initial alphas a_1
-        forw[:,0] = self.predict_states(X[0])*self.pi
+        if p_states is None:
+            p_states = self.predict_states_All( X )
+         
+        """
+        forw[:, 0] = p_states[:, 0]*self.pi
         
         for t in np.arange(1, T):
-            
-            forw[:,t] = self.predict_states( X[t] )*(A.T@ forw[:, t-1] )
-            
+           # forw[:,t] = self.predict_states( X[t] )*(A.T@ forw[:, t-1] )
+           forw[:,t] = p_states[:,t]*(A.T@ forw[:, t-1] )
+        
+        
+        #attemot with full loops
+        for t in np.arange(1, T):
+            for i in np.arange(K):
+               for j in np.arange(K):
+                   forw[i,t] +=  A[j,i]*forw[j,t-1]
+                   
+               forw[i,t] *= p_states[i,t]
+                
+        """   
+        #use Cython to speed up forward
+        _hmmh._forward( A,  p_states,
+              self.pi,  forw,
+              T,  K)
+        
+        
+        
         return forw
     
     def predict_x( self, X ):
@@ -281,7 +304,7 @@ class HMM(object):
         
         return pX
     
-    def backward(self, X):
+    def backward(self, X, p_states = None):
         """
         Implements the Backward algorithm
         Returns the matrix backw [b_1,..., b_T]
@@ -303,19 +326,37 @@ class HMM(object):
         #get transition matrix Aij = p(z(t) = j|z(t-1) = i)
         A = self.A
         #initialize backward matrix
-        backw = np.zeros( shape = [K, T])
+        backw = np.zeros( shape = [K, T], dtype = np.double)
         
+        
+        
+        if p_states is None:
+            p_states = self.predict_states_All(X)
+        
+        """ 
         #initialize backw matrix at time T
         backw[:, T-1] = 1
         
         for t in np.arange( T-2, -1, -1):
             #A:KxK, self.predict_states KxT backw: KxT
-            backw[:, t] = A.T@( self.predict_states( X[t+1])*backw[:,t+1])
+           #backw[:, t] = A.T@( self.predict_states( X[t+1])*backw[:,t+1])
+            backw[:, t] = A@( p_states[:,t+1]*backw[:,t+1])
+          
+        #ATTEMP WITH FULL LOOP
+        for t in np.arange( T-2, -1, -1):
+            for i in np.arange(K):
+                for j in np.arange(K):
+                    backw[i,t] += A[i,j]*backw[j,t+1]*p_states[j,t+1]
+        """
+        #attempt to speed up with Cython
+        _hmmh._backward(A,  p_states,
+                      self.pi, backw,
+                      T,  K)
             
         return backw 
     
     #smoothing probabilities
-    def gamas( self, X):
+    def gamas( self, X, forw = None, backw = None):
         
         """
         Computes the probability of being at state k at time t given
@@ -335,20 +376,28 @@ class HMM(object):
         reg = 10**( -6 ) #used if needed
         
         #run forward algorithm_
-        forw = self.forward( X )
+        if forw is None:
+            forw = self.forward( X )
+            
         #run backward algorithm
-        backw = self.backward( X )
+        if backw is None:
+            backw = self.backward( X )
+            
         #calculate gamma unnormalized
         gamma = forw*backw 
         gammaSumCol = np.sum( gamma, axis = 0)
+        
         #calculate final gamma
         gamma = (gamma/ gammaSumCol )  #KxT
+        
         #check the sum if it is 1 for each column
+        #print("Checking gama")
         checkSum_one( gamma , axis = 0)
+        #print(gamma)
         return gamma
 
 
-    def sliced( self, X):
+    def sliced( self, X, forw = None, backw = None, p_states = None):
 
         """
         Computes the sliced probability  p(z_t = i, Z_(t+1) = j| o1...T)
@@ -368,19 +417,25 @@ class HMM(object):
         xis = np.zeros( shape = [K, K, T-1 ] )
         
         #compute observation proabilities for all time steps of X
-        Pkt = self.predict_states_All( X )
+        if p_states is None:
+            p_states = self.predict_states_All( X )
+            
         #compute forward
-        forw = self.forward( X )
+        if forw is None:
+            forw = self.forward( X )
+            
         #compute backward 
-        backw = self.backward( X )
+        if backw is None:
+            backw = self.backward( X )
         
         for t in np.arange( T-1 ):
             
-            xis[:, :, t] = (A.T*forw[:, t]).T*( Pkt[:, t+1]*backw[:, t+1] )
+            xis[:, :, t] = (A.T*forw[:, t]).T*( p_states[:, t+1]*backw[:, t+1] )
             xisSum = np.sum( xis[:, :, t])
             xis[:,:,t] = xis[:,:,t]/xisSum
         
         #check if the sum on axis 0 and 1 sum to 1
+        #print("Checking xis")
         checkSum_one( xis.sum( axis = 0 ), axis = 0)
         return xis
     
@@ -427,8 +482,10 @@ class HMM(object):
         """
         #number of gaussian components
         gauss_comp = self.g_components_
+        
         #number of observations in time
         T = x_i.shape[0]
+        
         #initialize the matrix to return
         pk = np.zeros( shape = [gauss_comp, T])
         
@@ -437,9 +494,12 @@ class HMM(object):
         
         #get the component wise sum for each sample in time
         sumPk = np.sum( pk, axis = 0)
+        
         #normalize the pk matrix such that every column sums to 0
         pk = pk/sumPk
+        
         #checking if component wise they sum to 1 the gs
+        #print("Check Gs")
         checkSum_one(pk, axis = 0)
         return pk
         
@@ -480,6 +540,7 @@ class HMM(object):
             pi = pi/np.sum( pi )
             self.pi = pi
             
+            #print("Check pi init")
             checkSum_one(self.pi, axis = 0)
             
         return self
@@ -502,6 +563,7 @@ class HMM(object):
             A = A.T/Asum
             self.A = A.T
             
+            #print("check A init")
             checkSum_one(self.A, axis = 1)
         
         return self
@@ -610,6 +672,7 @@ class HMM(object):
         
         self.alpha[:] = alphaL
         #checking sum of alphas on axis 1 KxL
+        #print("check alphas init")
         checkSum_one(self.alpha, axis = 1)
         
         #initialize Covarinaces
@@ -703,13 +766,22 @@ class HMM(object):
         self.initialize_EM_sums( K, L, d,  r_m )
         
         for i in np.arange( len(X) ):
-#            print("iteration {} of internal EM for {} HMM".format(i, self.id))
+            #print("iteration {} of internal EM for {} HMM".format(i, self.id))
             #get the ith observation
             x_i = X[i]
+            
+            #compute p_states, forw, backw
+            p_states = self.predict_states_All(x_i)
+            #print(p_states)
+            #break
+            forw = self.forward(x_i, p_states = p_states )
+           # print(forw)
+           # break
+            backw = self.backward(x_i, p_states = p_states)
             #get the gammas for the i_th observation KXT
-            gamma_i = self.gamas( x_i )
+            gamma_i = self.gamas(x_i, forw = forw, backw = backw)
             #get xis for the i_th observation KXKX(T-1)
-            xis_i = self.sliced( x_i )
+            xis_i = self.sliced(x_i, forw = forw, backw = backw, p_states = p_states)
             #get the rm_i,  N 
             rm_i = r_m[i]
             #get g_is for the ith observation KxLXT

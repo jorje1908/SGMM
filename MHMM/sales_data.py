@@ -17,7 +17,7 @@ import time
 
 from HMMs import MHMM
 
-np.random.seed( seed = 0 )
+np.random.seed( seed = 50 )
 
 sales = pd.read_csv("/home/george/github/sparx/code/data/sales/sales.csv")
 salesNorm = sales.iloc[:, 55:].values
@@ -26,9 +26,9 @@ salesNorm3d = np.expand_dims( salesNorm, axis = 2)
 
 #initialize MHMM
 
-model = MHMM(n_HMMS = 1, n_states = 10, EM_iter = 40, tol = 10**(-3))
+model = MHMM(n_HMMS = 1, n_states = 2, EM_iter = 87, tol = 10**(-5))
 start = time.time()
-model = model.fit( data = salesNorm3d )
+model = model.fit( data = salesNorm3d[0:200] )
 end = time.time() - start
 logLi = model.logLikehood
 
@@ -36,3 +36,11 @@ print("time elapsed: {:.4}".format(end))
 
 #hmms
 params = model.get_params()
+    
+
+"""
+if __name__ == '__main__':
+    import cProfile
+    cProfile.run('main()', sort='time')
+    
+"""
