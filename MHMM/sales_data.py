@@ -26,7 +26,7 @@ salesNorm3d = np.expand_dims( salesNorm, axis = 2)
 
 #initialize MHMM
 
-model = MHMM(n_HMMS = 1, n_states = 2, EM_iter = 87, tol = 10**(-5))
+model = MHMM(n_HMMS = 1, n_states = 2, EM_iter = 10, tol = 10**(-5))
 start = time.time()
 model = model.fit( data = salesNorm3d[0:200] )
 end = time.time() - start
