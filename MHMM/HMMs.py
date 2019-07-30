@@ -20,11 +20,13 @@ Gaussians Model,
 
 import numpy as np
 from numpy import logaddexp
-from scipy.misc import logsumexp
+from scipy.special import logsumexp
 from scipy.stats import multivariate_normal
 from sklearn.cluster import KMeans
 from MHMM import _hmmh
 import time
+import _utils
+
 
 
 #########     check functions   #########
@@ -57,7 +59,7 @@ def checkSum_zero( matrix, axis):
     sum to 1
     """
     
-    result = matrix.sum( axis = axis ).round(5)
+    result = logsumexp(matrix, axis = axis ).round(5)
     value = np.all( result == 0 )
     
     
@@ -171,7 +173,7 @@ class HMM(object):
         #get number of states
         K = self.states_
         #initialize the array
-        log_P_all = np.full( shape = [K, T], fill_value = -np.inf)
+        log_P_all = np.zeros( shape = [K, T])
         
         for t in np.arange( T ): #for every time step
            log_P_all[:, t] = self.log_predict_states( X[t] )
@@ -268,37 +270,30 @@ class HMM(object):
        
         #get length of obseravtions in time
         T = X.shape[0]   
+        
         #get number of states
         K = self.states_
+        
         #get transition matrix Aij = p(z(t) = j|z(t-1) = i)
         log_A = np.log(self.A)
+        
         #initialize forward matrix
         log_forw = np.zeros( shape = [K, T], dtype = np.double)
         
         #take initial alphas a_1
         if log_p_states is None:
-            log_p_states = self.predict_states_All( X )
+            log_p_states = self.log_predict_states_All( X )
          
-       
-        #log_forw[:, 0] = log_p_states[:, 0]*self.pi
-        
-       
-        """
-        #attemot with full loops
-        for t in np.arange(1, T):
-            for i in np.arange(K):
-               for j in np.arange(K):
-                   forw[i,t] +=  A[j,i]*forw[j,t-1]
-                   
-               forw[i,t] *= p_states[i,t]
-                
-        """   
         #use Cython to speed up forward
+       
         _hmmh._forward_log( log_A,  log_p_states,
               np.log(self.pi),  log_forw,
               T,  K)
-        
-        
+        """
+        _utils._log_forward( log_A,  log_p_states,
+              np.log(self.pi),  log_forw,
+              T,  K)
+        """
         
         return log_forw
     
@@ -314,6 +309,7 @@ class HMM(object):
         """
         #take the time 
         T =  X.shape[0] 
+        
         #compute forward probabilities
         log_forw = self.log_forward( X )
         
@@ -339,40 +335,34 @@ class HMM(object):
         
         #get length of obseravtions in time
         T = X.shape[0]   
+        
         #get number of states
         K = self.states_
+        
         #get transition matrix Aij = p(z(t) = j|z(t-1) = i)
         log_A = np.log(self.A)
+        
         #initialize backward matrix
         log_backw = np.zeros( shape = [K, T], dtype = np.double)
-        
-        
         
         if log_p_states is None:
             log_p_states = self.log_predict_states_All(X)
         
-        
-        #initialize backw matrix at time T
-        #backw[:, T-1] = 1
-       
-        """ 
-        #ATTEMP WITH FULL LOOP
-        for t in np.arange( T-2, -1, -1):
-            for i in np.arange(K):
-                for j in np.arange(K):
-                    backw[i,t] += A[i,j]*backw[j,t+1]*p_states[j,t+1]
         
         #attempt to speed up with Cython
         """
         _hmmh._backward_log(log_A,  log_p_states,
                       np.log(self.pi), log_backw,
                       T,  K)
-       
-            
-        return log_backw 
+        """
+        _utils._log_backward(log_A,  log_p_states,
+                             log_backw,
+                              T,  K)
+        
+        return log_backw
     
     #smoothing probabilities
-    def log_gamas( self, X, log_forw = None, log_backw = None):
+    def log_gamas(self, X, log_forw = None, log_backw = None):
         
         """
         Computes the probability of being at state k at time t given
@@ -398,22 +388,22 @@ class HMM(object):
         #run backward algorithm
         if log_backw is None:
             log_backw = self.log_backward( X )
-            
-        #calculate gamma unnormalized
-        log_gamma = log_forw + log_backw 
-        log_prob = self.log_predict_x(X)
         
-        #normilize gamma
-        log_gamma -= log_prob
+        K = self.states_
+        log_gamma = np.zeros( shape = [K,K])
         
-        #calculate final gamma
-        #gamma = (gamma/ gammaSumCol )  #KxT
+        log_gamma = _utils._log_gamas(log_forw, log_backw, log_gamma)
         
-        #check the sum if it is 1 for each column
-        #print("Checking gama")
-        #checkSum_one( gamma , axis = 0)
-        checkSum_zero( log_gamma )
-        #print(gamma)
+#        #calculate gamma unnormalized
+#        log_gamma = log_forw + log_backw 
+#       
+#        #normilize gamma
+#        log_gamma = log_gamma - logsumexp(log_gamma, axis = 0)
+
+        
+        print("Checking gamma")
+        checkSum_zero( log_gamma, axis = 0 )
+       
         return log_gamma
 
 
@@ -429,10 +419,13 @@ class HMM(object):
         
         #get length of obseravtions in time
         T = X.shape[0]   
+        
         #get number of states
         K = self.states_
+        
         #get transition matrix Aij = p(z(t) = j|z(t-1) = i)
         log_A = np.log(self.A)
+        
         #initialize xis matrix
         log_xis = np.zeros( shape = [K, K, T-1 ] )
         
@@ -447,19 +440,17 @@ class HMM(object):
         #compute backward 
         if log_backw is None:
             log_backw = self.log_backward( X )
-        """
-        for t in np.arange( T-1 ):
-            
-            xis[:, :, t] = (A.T*forw[:, t]).T*( p_states[:, t+1]*backw[:, t+1] )
-            xisSum = np.sum( xis[:, :, t])
-            xis[:,:,t] = xis[:,:,t]/xisSum
-        """
-        _hmmh._xis_log(log_A, log_p_states,np.log(self.pi), log_forw,
+        """ 
+        _hmmh._xis_log(log_A, log_p_states, log_forw,
                        log_backw, log_xis, T,K)
-        #check if the sum on axis 0 and 1 sum to 1
-        #print("Checking xis")
-        #checkSum_one( xis.sum( axis = 0 ), axis = 0)
-        checkSum_zero(log_xis.sum( axis = 0 ), axis = 0)
+        """
+        _utils._log_xis(log_A, log_p_states, log_forw,
+                       log_backw, log_xis, T,K)
+       
+       
+        print("Checking xis")
+        checkSum_zero( logsumexp(log_xis, axis = 0), axis = 0 )
+        #print(logsumexp(logsumexp( log_xis, axis = 0), axis = 0))
         return log_xis
     
     #Gaussian Component Posterior
@@ -477,15 +468,18 @@ class HMM(object):
         """
         #get the time up to observations reach T
         T = x_i.shape[0]
+        
         #get the number of states
         K = self.states_
+        
         #get the number of gaussian components
         L = self.g_components_
+        
         #initialize matrix
         gs = np.zeros( shape = [K, L, T] )
         
         for state in np.arange( K ):
-            gs[state, :, :] = self.g_state( x_i, state )
+            gs[state, :, :] = self.log_g_state( x_i, state )
             
         return gs
             
@@ -516,13 +510,13 @@ class HMM(object):
             log_pk[cmp, :] = self.log_predict_state_comp(x_i, st = st, cmp = cmp)
         
         #get the component wise sum for each sample in time
-        log_sumPk = np.sum( log_pk, axis = 0)
+        log_sumPk = logsumexp( log_pk, axis = 0)
         
         #normalize the pk matrix such that every column sums to 0
         log_pk = log_pk-log_sumPk
         
-        #checking if component wise they sum to 1 the gs
-        #print("Check Gs")
+        #checking if component wise they sum to 0 the gs
+        print("Check Gs")
         checkSum_zero(log_pk, axis = 0)
         return log_pk
         
@@ -563,7 +557,7 @@ class HMM(object):
             pi = pi/np.sum( pi )
             self.pi = pi
             
-            #print("Check pi init")
+            print("Check pi init")
             checkSum_one(self.pi, axis = 0)
             
         return self
@@ -586,7 +580,7 @@ class HMM(object):
             A = A.T/Asum
             self.A = A.T
             
-            #print("check A init")
+            print("check A init")
             checkSum_one(self.A, axis = 1)
         
         return self
@@ -788,15 +782,16 @@ class HMM(object):
         #initializing attributes for the EM
         self.initialize_EM_sums( K, L, d,  r_m )
         
-        
+        #r_m = np.log( r_m.copy())
         for i in np.arange( len(X) ):
+            
             #print("iteration {} of internal EM for {} HMM".format(i, self.id))
+            
             #get the ith observation
             x_i = X[i]
             
             #compute p_states, f start = time.time()
             log_p_states = self.log_predict_states_All(x_i)
-            
             start = time.time()
             log_forw = self.log_forward(x_i, log_p_states = log_p_states )
             log_backw = self.log_backward(x_i, log_p_states = log_p_states)
@@ -819,21 +814,25 @@ class HMM(object):
             
             #update sum of pis
             self.update_pi( log_gamma_i[:, 0], rm_i )
+            
             #update A matrix nominator and denominator
             self.update_A( log_xis_i, log_gamma_i, rm_i )
+            
             #update alphas
-            membs_i= self.update_alpha( log_g_i, log_gamma_i, rm_i)
+            membs_i= self.update_alpha( np.exp(log_g_i), 
+                                       np.exp(log_gamma_i), np.exp(rm_i))
             
             self.update_means_cov( x_i, membs_i)
         
         #set all the model parameteres
         self.set_EM_updates()
         print("Time in Pstates: {}".format( self.timeIn_p_States))
+        
         return self
     
     
     #BEFORE EM ITERATION        
-    def initialize_EM_sums( self, K, L, d,  r_m ):
+    def initialize_EM_sums( self, K, L, d,  log_r_m ):
         """
         initializes all the parameteres used in the EM_iter
         to be used in the inside for loop 
@@ -844,16 +843,16 @@ class HMM(object):
         
         #sum  of initial state distributions
         #for all the K states
-        self.pi_Sum = np.zeros( shape = [K] )
+        self.pi_Sum = np.full( shape = [K], fill_value = -np.math.inf)
         
         #sum of all rm_i's
-        self.rm_Sum = logsumexp(np.log(r_m))
+        self.rm_Sum = logsumexp(log_r_m)
         
         #nominator for state transition probabilities
-        self.A_nom = np.zeros( shape = [K,K] )
+        self.A_nom = np.full( shape = [K,K], fill_value = -np.inf)
         
         #A denominator is the same as alpha denominator
-        self.A_den = np.zeros( shape = [K] )
+        self.A_den = np.full( shape = [K], fill_value = -np.inf)
         
         #alpha_Nom is the same as means denominator
         #and covarinaces denominator
@@ -883,8 +882,10 @@ class HMM(object):
         USED IN EM_iter method
         """
         
-        self.pi_Sum += gi1*rm_i 
-        checkSum_one(gi1, axis = 0)
+        self.pi_Sum = logaddexp(gi1+rm_i, self.pi_Sum)
+        
+        print("update_pi check gi1s")
+        checkSum_zero(gi1, axis = 0)
         return
         
         
@@ -900,13 +901,16 @@ class HMM(object):
         xis_i = KxKxT-1
         gamma_i = KxT
         """
-        self.A_nom += np.sum( xis_i, axis = 2)*rm_i
+        self.A_nom = logaddexp(logsumexp( xis_i, axis = 2)+rm_i, self.A_nom)
         #self.A_den += np.sum( gamma_i, axis = 1)*rm_i
         #self.A_den += np.sum(gamma_i[:, 0:-1], axis = 1)*rm_i
-        self.A_den +=  xis_i.sum( axis = 1).sum(axis = 1)*rm_i
-        
+        #self.A_den =  xis_i.sum( axis = 1).sum(axis = 1)*rm_i
+        my = logaddexp(logsumexp( gamma_i[:,0:-1], axis = 1 )+rm_i, self.A_den)
+        self.A_den = logaddexp(logsumexp(logsumexp( xis_i, axis = 1 ),axis = 1)+rm_i, self.A_den)
 #        print("Check gammas xis ")
 #        print( xis_i.sum( axis = 1)[:,0], gamma_i[:,0])
+        print(my)
+        print(self.A_den)
         return 
         
         
@@ -984,11 +988,13 @@ class HMM(object):
         
         """
         #set pi
-        self.pi = self.pi_Sum/self.rm_Sum
+        logpi = self.pi_Sum-self.rm_Sum
+        self.pi = np.exp(logpi)
         print("check set pi")
         checkSum_one( self.pi, axis = 0)
         #set A
-        self.A = ((self.A_nom).T/self.A_den).T
+        logA = self.A_nom.T - self.A_den
+        self.A = np.exp(logA.T)
         print("check set A")
         checkSum_one( self.A, axis = 1)
         #set alpha
@@ -1237,7 +1243,7 @@ class MHMM():
         
         #take the number of HMMs
         M = self.n_HMMS
-        R = self.posterior_All( X )
+        R = self.log_posterior_All( X )
         print("Checking R")
         #update the mixing parameters
         self.update_mix(R)
@@ -1258,12 +1264,12 @@ class MHMM():
         R = (N,M)
         """
         N = R.shape[0]
-        self.mix = np.sum( R , axis = 0)/N
+        self.mix = np.sum( np.exp(R) , axis = 0)/N
         
         return self
     #END OF EM FIT
         
-    def predict_proba(self, x_i ):
+    def predict_log_proba(self, x_i ):
         """
         predicts the probability of an observation given the model
         
@@ -1275,16 +1281,17 @@ class MHMM():
         """
         
         M = self.n_HMMS
-        mix = self.mix
-        px_i = 0
+        mix = np.log(self.mix)
+        px_i = -np.math.inf
+        
         for  m in np.arange( M ):
             hmm_m = self.HMMS[m]
-            px_i += hmm_m.predict_x( x_i )*mix[m]
+            px_i = logaddexp(hmm_m.log_predict_x( x_i )+mix[m], px_i)
             
         return px_i
     
     
-    def posterior_HMM(self, x_i):
+    def log_posterior_HMM(self, x_i):
         """
         calculates the posterior of each HMM 
         p(H = m | x_i;Model) 
@@ -1294,21 +1301,24 @@ class MHMM():
         """
         
         M = self.n_HMMS
-        mix = self.mix
+        mix = np.log(self.mix)
         rx_i = np.zeros(M)
         
         for m in np.arange( M ):
             hmm_m = self.HMMS[m]
-            rx_i[m] = hmm_m.predict_x( x_i )*mix[m]
+            rx_i[m] = hmm_m.log_predict_x( x_i )+mix[m]
             
-        sum_rx_i = np.sum( rx_i )
+        sum_rx_i = logsumexp( rx_i )
         #normalize posteriors
-        rx_i = rx_i/sum_rx_i
+        rx_i = rx_i-sum_rx_i
+        
+        print("Checking MHMM posterior")
+        checkSum_zero(rx_i, axis = 0)
         
         return rx_i
             
         
-    def posterior_All(self, X):
+    def log_posterior_All(self, X):
         """
         
         predicts the posterior probabilituy of being in an HMM
@@ -1326,7 +1336,7 @@ class MHMM():
         R = np.zeros( shape = [N,M] )
         
         for i in np.arange(N):
-            R[i,:] = self.posterior_HMM(X[i])
+            R[i,:] = self.log_posterior_HMM(X[i])
         
         return R
     
@@ -1358,7 +1368,7 @@ class MHMM():
         i = iteration
         tol = self._tol
         for n in np.arange( N ):
-            self.logLikehood[i] += np.log( self.predict_proba( data[n] ))
+            self.logLikehood[i] +=  self.predict_log_proba( data[n] )
         
         self.logLikehood[i]  = self.logLikehood[i]/N
         lgi = self.logLikehood[i]
