@@ -13,35 +13,56 @@ sys.path.append('..')
 import numpy as np
 import pandas as pd
 import time
+from _utils import generate_Coin
 
 
 from HMMs import MHMM
 from HMMs_1 import MHMM as MH
-
-np.random.seed( seed = 50 )
+from hmmlearn import hmm
+from _visu import plot_prob_state
+np.random.seed( seed = 2 )
 
 sales = pd.read_csv("/home/george/github/sparx/code/data/sales/sales.csv")
 salesNorm = sales.iloc[:, 55:].values
 salesNorm3d = np.expand_dims( salesNorm, axis = 2)
 
+N = 100
+data, states, coins = generate_Coin(N = N)
 
 #initialize MHMM
+model = MHMM(n_HMMS = 1, n_states = 2, EM_iter = 400, tol = 10**(-12), n_Comp = 1)
 
-model = MHMM(n_HMMS = 1, n_states = 2, EM_iter = 10, tol = 10**(-5))
-m1 = MH(n_HMMS = 1, n_states = 2, EM_iter = 10, tol = 10**(-5))
+states_sup = np.full( shape = [1,N], fill_value = -np.inf)
+#states_sup[0,5] = states[5]
+#states_sup[0,63] = states[63]
+#fit HMM
 start = time.time()
-model = model.fit( data = salesNorm3d[0:3] )
-print('\n \n \n Print no logs  \n \n'.format())
-m1 = m1.fit(data = salesNorm3d[0:3] )
+model = model.fit( data = data[1:] , states = None)
 end = time.time() - start
-logLi = model.logLikehood
-logLi1 = m1.logLikehood
+
+
 
 print("time elapsed: {:.4}".format(end))
+logLi = model.logLikehood
+params = model.get_params()['params']
 
-#hmms
-params = model.get_params()
-params1 = m1.get_params()   
+hmmM = model.HMMS[0]
+gamas = hmmM.log_gamas( data[1] )
+forw = hmmM.log_forward( data[1])
+gamma_states = np.argmax(gamas, axis = 0)
+vit_log, vit_states, vit_seq, p_states = hmmM.log_viterbi( data[1])
+
+accuracy_viterbi =  np.sum( vit_seq == states[:,0])/N
+accuracy_gamma = np.sum( gamma_states == states[:,0])/N
+#start = time.time()
+
+#m1 = m1.fit(data = data[1:] )
+#end = time.time() - start
+#print("time elapsed: {:.4}".format(end))
+#
+#m2 = m2.fit( data[1])
+#logLi1 = m1.logLikehood
+#params1 = m1.get_params()['params']   
 
 """
 if __name__ == '__main__':

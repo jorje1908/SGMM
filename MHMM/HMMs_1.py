@@ -34,7 +34,7 @@ def checkShape(  arg1, arg2, name):
         
     return
 
-def checkSum_one( matrix, axis):
+def checkSum_one( matrix, axis, name):
     """
     Checks if the matrix entries along the given axis
     sum to 1
@@ -45,11 +45,11 @@ def checkSum_one( matrix, axis):
     
     
     if not value:
-        print(" Warning: Elements do not sum to 1 ")
+        print(" Warning: Elements do not sum to 1 in {} ".format(name))
         
     return
 
-def checkSum_zero( matrix, axis):
+def checkSum_zero( matrix, axis, name):
     """
     Checks if the matrix entries along the given axis
     sum to 1
@@ -60,7 +60,7 @@ def checkSum_zero( matrix, axis):
     
     
     if not value:
-        print(" Warning: Elements do not sum to 0 ")
+        print(" Warning: Elements do not sum to 0 in {} ".format(name))
         
     return
 
@@ -396,18 +396,18 @@ class HMM(object):
             backw = self.backward( X )
             
         #calculate gamma unnormalized
-        gamma = forw*backw 
+        gamma = forw*backw + reg
         normalize = gamma.sum(axis = 0)
         
         #normilize gamma
-        gamma = gamma/normalize
+        gamma = gamma/(normalize)
         
         #calculate final gamma
         #gamma = (gamma/ gammaSumCol )  #KxT
         
         #check the sum if it is 1 for each column
-        print("Checking gama")
-        checkSum_one( gamma , axis = 0)
+       # print("Checking gama")
+        checkSum_one( gamma , axis = 0,name = "gamas")
         
         return gamma
 
@@ -421,7 +421,7 @@ class HMM(object):
         
         X = (T, d)
         """
-        
+        reg = 10**(-6)
         #get length of obseravtions in time
         T = X.shape[0]   
         #get number of states
@@ -445,14 +445,14 @@ class HMM(object):
         
         for t in np.arange( T-1 ):
             
-            xis[:, :, t] = (A.T*forw[:, t]).T*( p_states[:, t+1]*backw[:, t+1] )
+            xis[:, :, t] = (A.T*forw[:, t]).T*( p_states[:, t+1]*backw[:, t+1] ) + reg
             xisSum = np.sum( xis[:, :, t])
-            xis[:,:,t] = xis[:,:,t]/xisSum
+            xis[:,:,t] = xis[:,:,t]/(xisSum )
         
        
         #check if the sum on axis 0 and 1 sum to 1
-        print("Checking xis")
-        checkSum_one( xis.sum( axis = 0 ), axis = 0)
+       # print("Checking xis")
+        checkSum_one( xis.sum( axis = 0 ), axis = 0, name = "xis")
         
         return xis
     
@@ -497,6 +497,7 @@ class HMM(object):
         x_i = [x_i(1),...x_i(T)]
         x_i = ( Txd )
         """
+        reg = 10**(-6)
         #number of gaussian components
         gauss_comp = self.g_components_
         
@@ -507,17 +508,17 @@ class HMM(object):
         pk = np.zeros( shape = [gauss_comp, T])
         
         for cmp in np.arange( gauss_comp ):
-            pk[cmp, :] = self.predict_state_comp(x_i, st = st, cmp = cmp)
+            pk[cmp, :] = self.predict_state_comp(x_i, st = st, cmp = cmp) + reg
         
         #get the component wise sum for each sample in time
         sumPk = np.sum( pk, axis = 0)
         
         #normalize the pk matrix such that every column sums to 0
-        pk = pk/sumPk
+        pk = pk/(sumPk )
         
         #checking if component wise they sum to 1 the gs
-        print("Check Gs")
-        checkSum_one(pk, axis = 0)
+        #print("Check Gs")
+        checkSum_one(pk, axis = 0, name = "g_state")
         return pk
         
     #INITIALIZATIONS OF THE EM MODEL
@@ -558,7 +559,7 @@ class HMM(object):
             self.pi = pi
             
             #print("Check pi init")
-            checkSum_one(self.pi, axis = 0)
+            checkSum_one(self.pi, axis = 0, name = "pi_init")
             
         return self
         
@@ -581,7 +582,7 @@ class HMM(object):
             self.A = A.T
             
             #print("check A init")
-            checkSum_one(self.A, axis = 1)
+            checkSum_one(self.A, axis = 1, name =  "A_init")
         
         return self
             
@@ -690,7 +691,7 @@ class HMM(object):
         self.alpha[:] = alphaL
         #checking sum of alphas on axis 1 KxL
         #print("check alphas init")
-        checkSum_one(self.alpha, axis = 1)
+        checkSum_one(self.alpha, axis = 1, name = "alpha_init")
         
         #initialize Covarinaces
         self.cov[:,:] = np.eye( d )
@@ -878,7 +879,7 @@ class HMM(object):
         """
         
         self.pi_Sum += gi1*rm_i 
-        checkSum_one(gi1, axis = 0)
+        checkSum_one(gi1, axis = 0, name = "update_pi: g1s")
         return
         
         
@@ -897,10 +898,12 @@ class HMM(object):
         self.A_nom += np.sum( xis_i, axis = 2)*rm_i
         #self.A_den += np.sum( gamma_i, axis = 1)*rm_i
         #self.A_den += np.sum(gamma_i[:, 0:-1], axis = 1)*rm_i
+       
         self.A_den +=  xis_i.sum( axis = 1).sum(axis = 1)*rm_i
-        
+       
 #        print("Check gammas xis ")
-#        print( xis_i.sum( axis = 1)[:,0], gamma_i[:,0])
+#        print( xis_i.sum(axis = 1))
+#        print(gamma_i[:,0:-1])
         return 
         
         
@@ -979,16 +982,16 @@ class HMM(object):
         """
         #set pi
         self.pi = self.pi_Sum/self.rm_Sum
-        print("check set pi")
-        checkSum_one( self.pi, axis = 0)
+        #print("check set pi")
+        checkSum_one( self.pi, axis = 0, name = "set_pis")
         #set A
         self.A = ((self.A_nom).T/self.A_den).T
-        print("check set A")
-        checkSum_one( self.A, axis = 1)
+       # print("check set A")
+        checkSum_one( self.A, axis = 1, name = "set_A")
         #set alpha
         self.alpha = ((self.alpha_Nom).T/self.alpha_Den).T
-        print("check set alpha")
-        checkSum_one( self.alpha, axis = 1)
+       # print("check set alpha")
+        checkSum_one( self.alpha, axis = 1, name = "set alpha")
         #set means
         self.set_means()
         #set_covariances
@@ -1232,7 +1235,7 @@ class MHMM():
         #take the number of HMMs
         M = self.n_HMMS
         R = self.posterior_All( X )
-        print("Checking R")
+        #print("Checking R")
         #update the mixing parameters
         self.update_mix(R)
         
@@ -1286,19 +1289,19 @@ class MHMM():
         
         rx_i = (M,)
         """
-        
+        reg = 10**(-6)
         M = self.n_HMMS
         mix = self.mix
         rx_i = np.zeros(M)
         
         for m in np.arange( M ):
             hmm_m = self.HMMS[m]
-            rx_i[m] = hmm_m.predict_x( x_i )*mix[m]
+            rx_i[m] = hmm_m.predict_x( x_i )*mix[m] + reg
             
         sum_rx_i = np.sum( rx_i )
         #normalize posteriors
-        rx_i = rx_i/sum_rx_i
-        
+        rx_i = rx_i/(sum_rx_i )
+        checkSum_one( rx_i, axis = 0 , name = "posterior HMM")
         return rx_i
             
         

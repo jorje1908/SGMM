@@ -13,23 +13,86 @@ from scipy.special import logsumexp
 
 
 
-def _log_forward( log_A, log_p_states, log_init_states, log_forw, T, K):
+def _log_forward( log_A, log_p_states, log_init_states, log_forw, T, K,
+                 states = None):
     
     
     for i in range(K):#initialize
+        
         log_forw[i,0] = log_p_states[i,0] + log_init_states[i]
         
+        
+    if states is not None:
+        if not np.isinf(states[0]):
+            s0 = int(states[0])
+            
+            helpMat = logsumexp(log_forw[:,0])
+            log_forw[:,0] = -np.inf
+            log_forw[s0, 0] = helpMat.copy()
+    #added           
+    N0 = logsumexp(log_forw[:,0])
+    log_forw[:,0] -=N0   
+    Ntsum = N0
+    ######
     
     work_buffer  = np.zeros(shape = [K])
     for t in range(1,T):
+        N = -np.inf
         for i in range(K):
             for j in range(K):
                 work_buffer[j] = log_A[j,i] + log_forw[j,t-1]
             
             log_forw[i,t] = logsumexp(work_buffer) + log_p_states[i,t]
+            N = logaddexp(log_forw[i,t], N)
+        Ntsum = logaddexp(N, Ntsum)
+        log_forw[:,t] -= N
+        if states is not None:
+            if not np.isinf( states[t]):
+                st = int(states[t])
+                helpMat = logsumexp(log_forw[:,t])
+                log_forw[:,t] = -np.inf
+                log_forw[st,t] = helpMat.copy()
+        
+    return Ntsum
+                
+
+def _log_viterbi(log_A, log_p_states, log_init_states, log_vit, T, K):
+    
+    states = np.zeros_like( log_vit )
+    states[:,0] = np.arange(K)
+    
+    for i in range(K): #initialize
+        log_vit[i,0] = log_p_states[i,0] + log_init_states[i]
+    
+    N0 = logsumexp(log_vit[:,0])
+    log_vit[:,0] -= N0
+    work_buffer  = np.zeros(shape = [K])  
+    
+    for t in range(1,T):
+        N = -np.inf
+        for i in range(K):
+            for j in range(K):
+                work_buffer[j] = log_A[j,i] + log_vit[j,t-1]
             
+            N = logaddexp(logsumexp(work_buffer)+ log_p_states[i,t], N)
+            log_vit[i,t] = max(work_buffer) + log_p_states[i,t]
+            states[i,t] = np.argmax(work_buffer)
+        #normalize
+        log_vit[:,t] -= N
+        
+    max_seq = []
+    max_prob_ind = int(np.argmax(log_vit[:,T-1]))
+    max_seq.append(max_prob_ind)
+    
+    for t in range(T-1, 0, -1):     
+        max_seq.append(states[max_prob_ind, t])
+        max_prob_ind = int(states[max_prob_ind,t])
+        
+    max_seq.reverse()  
+    return log_vit, states, max_seq
+                
             
-            
+          
             
 def _log_backward(log_A, log_p_states, log_backw, T, K):
     
@@ -77,5 +140,58 @@ def _log_xis(log_A, log_p_states, log_forw, log_backw, log_xis, T, K):
     
     
         
+def generate_Coin(A = None, init = None, p_Coin = None, c_type = "Custom",
+                  N = 5000):
+    
+    
+     if c_type == "Custom":
+        A = np.zeros( shape = [2,2])
+        A[0,0] = 0.5
+        A[0,1] = 0.5
+        A[1,0] = 0.05
+        A[1,1] = 0.95
+        
+        init = np.zeros(2)
+        init[0] = 0.5
+        init[1] = 0.5
+        
+        p_Coin = np.zeros( shape = [2,2])
+        p_Coin[0,0] = 0.99
+        p_Coin[0,1] = 0.01
+        p_Coin[1,0] = 0.01
+        p_Coin[1,1] = 0.99
+        
+        
+     states = np.zeros(shape = [N,1])
+     coins = np.zeros( shape = [N,1])
+     si = -1
+     for i in range(N):
+         if i == 0:
+             si = np.random.choice([0,1], size = 1, p = init )[0]
+        
+         else:
+             si = np.random.choice([0,1], size = 1, p = A[si])[0]
+        
+         states[i] = si
+         ci = np.random.choice([0,1], size = 1,p = p_Coin[si])[0]
+         coins[i] = ci
+
+
+     data = np.expand_dims(np.concatenate((states.T, coins.T), axis = 0 ), axis = 2)
+     return data, states, coins
+
+           
+        
+        
+        
+        
+
+
+
+
+
+
+
+
         
     
