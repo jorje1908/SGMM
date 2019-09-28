@@ -140,45 +140,7 @@ def _log_xis(log_A, log_p_states, log_forw, log_backw, log_xis, T, K):
     
     
         
-def generate_Coin(A = None, init = None, p_Coin = None, c_type = "Custom",
-                  N = 5000):
-    
-    
-     if c_type == "Custom":
-        A = np.zeros( shape = [2,2])
-        A[0,0] = 0.5
-        A[0,1] = 0.5
-        A[1,0] = 0.05
-        A[1,1] = 0.95
-        
-        init = np.zeros(2)
-        init[0] = 0.5
-        init[1] = 0.5
-        
-        p_Coin = np.zeros( shape = [2,2])
-        p_Coin[0,0] = 0.99
-        p_Coin[0,1] = 0.01
-        p_Coin[1,0] = 0.01
-        p_Coin[1,1] = 0.99
-        
-        
-     states = np.zeros(shape = [N,1])
-     coins = np.zeros( shape = [N,1])
-     si = -1
-     for i in range(N):
-         if i == 0:
-             si = np.random.choice([0,1], size = 1, p = init )[0]
-        
-         else:
-             si = np.random.choice([0,1], size = 1, p = A[si])[0]
-        
-         states[i] = si
-         ci = np.random.choice([0,1], size = 1,p = p_Coin[si])[0]
-         coins[i] = ci
 
-
-     data = np.expand_dims(np.concatenate((states.T, coins.T), axis = 0 ), axis = 2)
-     return data, states, coins
 
            
         

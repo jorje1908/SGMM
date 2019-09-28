@@ -10,7 +10,7 @@ import numpy as np
 import pandas as pd
 import time
 
-from _utils import generate_Coin
+from _experiments import generate_Coin
 from HMMs import MHMM
 from _visu import plot_prob_state
 np.random.seed( seed = 2 )

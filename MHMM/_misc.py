@@ -32,4 +32,24 @@ def make_supervised( states_matrix, value = 0):
     return new_mat
         
     
+
+def compute_forw(hmm, data):
+    """
+ 
+    computes the forward probabilities for all data
+    
+    """
+    
+    N = data.shape[0]
+    T = data.shape[1]
+    
+    zers = np.zeros(shape = [N,T])
+    ones = np.zeros( shape = [N,T])
+    
+    for  i in range(N):
+        forw = np.exp( hmm.log_forward(data[i,:,:]) )
+        zers[i] = forw[0,:]
+        ones[i] = forw[1,:]
+        
+    return zers.reshape(N*T), ones.reshape(N*T)
     
