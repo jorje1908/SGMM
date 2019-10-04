@@ -109,7 +109,7 @@ class HMM(object):
     
     
     def __init__(self, states = 2, g_components = 2, t_cov = "diag", 
-                 gmm_init = 'Kmeans', kmean_Points = 1000, idi = None):
+                 gmm_init = 'Kmeans', kmean_Points = -1, idi = None):
         
         #setting covariance type attribute
         self.t_cov = t_cov
@@ -139,7 +139,7 @@ class HMM(object):
         self.gmm_init = gmm_init
         #how many random points to use for the kmeans
         self.kmean_Points = kmean_Points
-        #state of the model initialized or not
+        #state of the model initialized or not -1 means all
         self.initialized = False
         #iD of the HMM
         self.id = idi
@@ -709,11 +709,18 @@ class HMM(object):
         d = X[0].shape[1] 
         #gaussian components
         L = self.g_components_
+        #number of States
+        K = self.states_
+        
         
         #check points
         if points > N*T:
             points = N*T
             self.kmean_Points = points
+        
+        #if we initialize with -1 the kmean_Points take all points
+        if points == -1:
+            points = N*T
         #make the dataset to use in the kmeans
         X_make = self.make_dataset( X, points)
         
@@ -722,20 +729,30 @@ class HMM(object):
         
         #initialize alphas
         #number of points
-        N_x = len( labels )
-        #find alphas
-        alphaL = np.zeros(L)
-        for l in np.arange( L ):
-            indxl = len( np.where( labels == l )[0] )
-            alphaL[l] = indxl/N_x
+        #N_x = len( labels )
         
-        self.alpha[:] = alphaL
+        #find alphas
+        #alphaK = np.zeros(K)
+        #alphaL = np.zeros(L)
+        for l in np.arange( K ):
+            #indxl = len( np.where( labels == l )[0] )
+            #indxl = len( np.where( labels == l )[0] )
+            indx2 = np.where( labels == l )[0]
+            Xl = np.var(X_make[indx2], axis = 0)
+           # print(Xl.shape)
+            self.cov[l, :] = np.diag(Xl)
+            #alphaL[l] = indxl/N_x
+            #alphaL[l] = 1/L
+        
+        #self.alpha[:] = alphaL
+        self.alpha[:] = 1/L
+        
         #checking sum of alphas on axis 1 KxL
         #print("check alphas init")
         checkSum_one(self.alpha, axis = 1, name = "init_alphas")
         
         #initialize Covarinaces
-        self.cov[:,:] = np.eye( d )
+       # self.cov[:,:] = np.eye( d )
         
         return self
         
@@ -747,12 +764,15 @@ class HMM(object):
         X_make = [self.kmean_points, d]
         """
        
-        L = self.g_components_
-        kmeans = KMeans( n_clusters = L )
+        #L = self.g_components_
+        K = self.states_
+        kmeans = KMeans( n_clusters = K )
         model = kmeans.fit(X_make)
         means = model.cluster_centers_
         labels = model.labels_
-        self.means[:] = means
+        
+        for i in range(K):
+            self.means[i, :] = means[i]
         
         return labels
         

@@ -19,17 +19,17 @@ import matplotlib.pyplot as plt
 np.random.seed( seed = 0 )
 
 #GENERATE DATA
-a0 = [0.7, 0.3]
+a0 = [0.9, 0.1]
 a1 = [0.4, 0.6]
 
 m_0 = 0
-m_1 = 2
+m_1 = 5
 std_0 = 1
 std_1 = 1
 
 A = np.array([a0, a1])
 T = 24
-N = 10000
+N = 100
 
 data, states = gauss_seq1d(T = T, N = N, A = A, m_0 = m_0, m_1 = m_1,
                            std_0 = std_0, std_1 = std_1)
@@ -39,7 +39,7 @@ data, states = gauss_seq1d(T = T, N = N, A = A, m_0 = m_0, m_1 = m_1,
 #TRAIN HMM
 n_HMMS = 1
 n_Comp = 1
-EM_iter = 1600
+EM_iter = 20
 states1 = make_supervised(states.copy(), value = 0)
 statesinf = np.full( shape = [states1.shape[0], states1.shape[1]], fill_value = -np.inf )
 statesinf[0, 10] = 1
